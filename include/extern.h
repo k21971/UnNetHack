@@ -1818,6 +1818,7 @@ E char *FDECL(cxname, (struct obj *));
 #ifdef SORTLOOT
 E char *FDECL(cxname_singular, (struct obj *));
 #endif
+extern char *cxname_unidentified(struct obj *);
 E char *FDECL(killer_xname, (struct obj *));
 E char *FDECL(short_oname, (struct obj *, char *(*)(OBJ_P), char *(*)(OBJ_P), unsigned));
 E const char *FDECL(singular, (struct obj *, char *(*)(OBJ_P)));
@@ -1908,7 +1909,7 @@ E int NDECL(dowhatdoes);
 E char *FDECL(dowhatdoes_core, (CHAR_P, char *));
 E int NDECL(dohelp);
 E int NDECL(dohistory);
-E void FDECL(checkfile, (char *, struct permonst *, BOOLEAN_P, BOOLEAN_P, char *));
+E void FDECL(checkfile, (struct obj *, char *, struct permonst *, BOOLEAN_P, BOOLEAN_P, char *));
 
 /* ### pcmain.c ### */
 
@@ -2073,6 +2074,9 @@ E void FDECL(mongrantswish, (struct monst **));
 E void FDECL(djinni_from_bottle, (struct obj *));
 E struct monst *FDECL(split_mon, (struct monst *, struct monst *));
 E const char *NDECL(bottlename);
+extern boolean is_dark_mix_color(struct obj *);
+extern boolean is_colorless_mix_potion(struct obj *);
+extern const char* get_base_mix_color(struct obj *);
 
 /* ### pray.c ### */
 
