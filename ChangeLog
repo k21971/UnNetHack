@@ -37,6 +37,7 @@
 	  - Candle light radius is square root, not logarithmic anymore (from NetHack 3.7)
 	  - Wielding Demonbane makes demons angry (from NetHack 3.6)
 	  - Autoidentify scroll of remove curse when a known BUC state changes (from xNetHack)
+	  - Ensure all color alchemy potions exist in any given game
 
 	* artifact changes:
 	  - Removed artifact wish failure due to the number of existing artifacts
@@ -122,6 +123,7 @@
 	  - MONSTERCOLOR could be used to reveal identity of Riders (reported by Nicole Kleinhoff)
 	  - Don't reveal description of spellbook when writing it blind
 	  - Fix statuscolors crash due to incorrect color name parsing
+	  - Empty bag of tricks were considered magical bags
 
 	* build fixes:
 	  - Fix compiling with -fno-common
