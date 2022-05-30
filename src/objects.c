@@ -113,7 +113,7 @@ NEARDATA struct objclass objects[] = {
     WEAPON("silver spear", (char *)0,
            1, 1, 0,  2, 36, 40,  6,  8, 0, P,   P_SPEAR, SILVER, HI_SILVER),
     WEAPON("javelin", "throwing spear",
-           0, 1, 0, 10, 20,  3,  6,  6, 0, P,   P_JAVELIN, IRON, HI_METAL),
+           0, 1, 0, 10, 20,  3,  6,  6, 0, P,   P_SPEAR, IRON, HI_METAL),
 
     WEAPON("trident", (char *)0,
            1, 0, 0,  8, 25,  5,  6,  4, 0, P,   P_TRIDENT, IRON, HI_METAL),
@@ -373,13 +373,8 @@ NEARDATA struct objclass objects[] = {
           1, 0, 1, 0, 44, 5, 450, 600,  3, 2, ARM_SUIT, IRON, HI_METAL),
     ARMOR("crystal plate mail", (char *)0,
           1, 0, 1, 0, 10, 5, 450, 820,  3, 2, ARM_SUIT, GLASS, CLR_WHITE),
-#ifdef TOURIST
     ARMOR("bronze plate mail", (char *)0,
           1, 0, 1, 0, 25, 5, 450, 400,  4, 0, ARM_SUIT, COPPER, HI_COPPER),
-#else
-    ARMOR("bronze plate mail", (char *)0,
-          1, 0, 1, 0, 35, 5, 450, 400,  4, 0, ARM_SUIT, COPPER, HI_COPPER),
-#endif
     ARMOR("splint mail", (char *)0,
           1, 0, 1, 0, 62, 5, 400,  80,  4, 1, ARM_SUIT, IRON, HI_METAL),
     ARMOR("banded mail", (char *)0,
@@ -405,17 +400,13 @@ NEARDATA struct objclass objects[] = {
     ARMOR("leather jacket", (char *)0,
           1, 0, 0, 0, 12, 0,  30,  10,  9, 0, ARM_SUIT, LEATHER, CLR_BLACK),
 
-#ifdef TOURIST
 /* shirts */
     ARMOR("Hawaiian shirt", (char *)0,
           1, 0, 0, 0,  8, 0,   5,   3, 10, 0, ARM_SHIRT, CLOTH, CLR_MAGENTA),
-# ifdef CONVICT
     ARMOR("striped shirt", (char *)0,
           1, 0, 0, 0,  0, 0,   5,   2, 10, 0, ARM_SHIRT, CLOTH, CLR_GRAY),
-# endif /* CONVICT */
     ARMOR("T-shirt", (char *)0,
           1, 0, 0, 0,  2, 0,   5,   2, 10, 0, ARM_SHIRT, CLOTH, CLR_WHITE),
-#endif  /* TOURIST */
 
 /* cloaks */
 /*  'cope' is not a spelling mistake... leave it be */
@@ -628,12 +619,8 @@ NEARDATA struct objclass objects[] = {
 
 /* lock opening tools */
     TOOL("skeleton key", "key",     0, 0, 0, 0,  80,  3,  10, IRON, HI_METAL),
-#ifdef TOURIST
     TOOL("lock pick", (char *)0,    1, 0, 0, 0,  60,  4,  20, IRON, HI_METAL),
     TOOL("credit card", (char *)0,  1, 0, 0, 0,  15,  1,  10, PLASTIC, CLR_WHITE),
-#else
-    TOOL("lock pick", (char *)0,    1, 0, 0, 0,  75,  4,  20, IRON, HI_METAL),
-#endif
 /* light sources */
     TOOL("tallow candle", "candle", 0, 1, 0, 0,  20,  2,  10, WAX, CLR_WHITE),
     TOOL("wax candle", "candle",    0, 1, 0, 0,   5,  2,  20, WAX, CLR_WHITE),
@@ -641,24 +628,16 @@ NEARDATA struct objclass objects[] = {
     TOOL("oil lamp", "lamp",        0, 0, 0, 0,  45, 20,  10, COPPER, CLR_YELLOW),
     TOOL("magic lamp", "lamp",      0, 0, 1, 0,  15, 20,  50, COPPER, CLR_YELLOW),
 /* other tools */
-#ifdef TOURIST
     TOOL("expensive camera", (char *)0,
          1, 0, 0, 1,  15, 12, 200, PLASTIC, CLR_BLACK),
     TOOL("mirror", "looking glass", 0, 0, 0, 0,  45, 13,  10, GLASS, HI_SILVER),
-#else
-    TOOL("mirror", "looking glass", 0, 0, 0, 0,  60, 13,  10, GLASS, HI_SILVER),
-#endif
     TOOL("crystal ball", "glass orb",
          0, 0, 1, 1,  15, 150,  60, GLASS, HI_GLASS),
     TOOL("lenses", (char *)0,   1, 0, 0, 0,   5,  3,  80, GLASS, HI_GLASS),
     TOOL("blindfold", (char *)0,    1, 0, 0, 0,  50,  2,  20, CLOTH, CLR_BLACK),
     TOOL("towel", (char *)0,        1, 0, 0, 0,  50,  2,  50, CLOTH, CLR_MAGENTA),
-#ifdef STEED
     TOOL("saddle", (char *)0,       1, 0, 0, 0,   5, 200, 150, LEATHER, HI_LEATHER),
     TOOL("leash", (char *)0,        1, 0, 0, 0,  65, 12,  20, LEATHER, HI_LEATHER),
-#else
-    TOOL("leash", (char *)0,        1, 0, 0, 0,  70, 12,  20, LEATHER, HI_LEATHER),
-#endif
     TOOL("stethoscope", (char *)0,  1, 0, 0, 0,  25,  4,  75, IRON, HI_METAL),
     TOOL("tinning kit", (char *)0,  1, 0, 0, 1,  15, 100,  30, IRON, HI_METAL),
     TOOL("tin opener", (char *)0,   1, 0, 0, 0,  35,  4,  30, IRON, HI_METAL),
@@ -777,7 +756,7 @@ NEARDATA struct objclass objects[] = {
     POTION("hallucination", "sky blue",     1, HALLUC,     40, 100, CLR_CYAN),
     POTION("invisibility", "indigo",        1, INVIS,      40, 150, CLR_BRIGHT_BLUE),
     POTION("see invisible", "magenta",      1, SEE_INVIS,  42,  50, CLR_MAGENTA),
-    POTION("healing", "amber",              1, 0,          57, 100, CLR_ORANGE),
+    POTION("healing", "amber",              1, 0,          57, 100, CLR_BROWN),
     POTION("extra healing", "puce",         1, 0,          47, 100, CLR_RED),
     POTION("gain level", "brown",           1, 0,          20, 300, CLR_BROWN),
     POTION("monster detection", "white",    1, 0,          40, 150, CLR_WHITE),
@@ -788,7 +767,7 @@ NEARDATA struct objclass objects[] = {
 /* ^^^ POT_POLYMORPH == last potion description used in color alchemy. */
 /* Remaining potions that aren't just descriptions follow. */
     POTION("levitation", "viscous",         1, LEVITATION, 42, 200, CLR_GRAY),
-    POTION("enlightenment", "swirly",       1, 0,          20, 200, CLR_BROWN),
+    POTION("enlightenment", "swirly",       1, 0,          20, 200, CLR_ORANGE),
     POTION("sleeping", "effervescent",      1, 0,          42, 100, CLR_GRAY),
     POTION("booze", "milky",                0, 0,          42,  50, CLR_WHITE),
     POTION("sickness", "fizzy",             0, 0,          42,  50, CLR_CYAN),
@@ -878,7 +857,7 @@ NEARDATA struct objclass objects[] = {
     SPELL("magic missile",   "vellum",      P_ATTACK_SPELL, 45,  2, 2, 1, RAY,       HI_PAPER),
     SPELL("fireball",        "ragged",      P_ATTACK_SPELL, 20,  4, 4, 1, RAY,       HI_PAPER),
     SPELL("cone of cold",    "dog eared",   P_ATTACK_SPELL, 10,  7, 4, 1, RAY,       HI_PAPER),
-    SPELL("sleep",           "mottled",     P_ENCHANTMENT_SPELL, 50,  1, 1, 1, RAY,       HI_PAPER),
+    SPELL("sleep",           "mottled",     P_ENCHANTMENT_SPELL, 50,  1, 3, 1, RAY,       HI_PAPER),
     SPELL("finger of death", "stained",     P_ATTACK_SPELL,  5, 10, 7, 1, RAY,       HI_PAPER),
     SPELL("light",           "cloth",       P_DIVINATION_SPELL, 45,  1, 1, 1, NODIR,     HI_CLOTH),
     SPELL("detect monsters", "leather",     P_DIVINATION_SPELL, 43,  1, 1, 1, NODIR,     HI_LEATHER),
@@ -1078,11 +1057,7 @@ NEARDATA struct objclass objects[] = {
     OBJECT(OBJ("statue", (char *)0), BITS(1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, P_NONE, MINERAL), 0,
            ROCK_CLASS,   900, 0, 2500,  0, 20, 20, 0, 0, 2500, CLR_WHITE),
 
-#ifdef CONVICT
     OBJECT(OBJ("heavy iron ball", (char *)0), BITS(1, 0, 0, 0, 0, 0, 0, 0, 0, 0, WHACK, P_FLAIL, IRON), 0,
-#else
-    OBJECT(OBJ("heavy iron ball", (char *)0), BITS(1, 0, 0, 0, 0, 0, 0, 0, 0, 0, WHACK, P_NONE, IRON), 0,
-#endif /* CONVICT */
            BALL_CLASS,  1000, 0,  480, 10, 25, 25, 0, 0,  200, HI_METAL),
     /* +d4 when "very heavy" */
     OBJECT(OBJ("iron chain", (char *)0), BITS(1, 0, 0, 0, 0, 0, 0, 0, 0, 0, WHACK, P_NONE, IRON), 0,

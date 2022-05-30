@@ -60,7 +60,6 @@ enum hunger_state_types {
 #define BY_PAPER    2
 #define BY_OTHER    9
 
-#ifdef STEED
 /* Macros for why you are no longer riding */
 #define DISMOUNT_GENERIC    0
 #define DISMOUNT_FELL       1
@@ -70,7 +69,6 @@ enum hunger_state_types {
 #define DISMOUNT_BONES      5
 #define DISMOUNT_BYCHOICE   6
 #define DISMOUNT_VANISHED   7
-#endif
 
 /* mgflags for mapglyph() */
 #define MG_FLAG_NORMAL     0x00
@@ -439,6 +437,12 @@ enum hmon_atkmode_types {
 #define MENU_UNSELECTED FALSE
 
 #define MENU_DEFCNT 1
+
+/* extended command return values */
+#define ECMD_OK     0x00 /* cmd done successfully */
+#define ECMD_TIME   0x01 /* cmd took time, uses up a turn */
+#define ECMD_CANCEL 0x02 /* cmd canceled by user */
+#define ECMD_FAIL   0x04 /* cmd failed to finish, maybe with a yafm */
 
 /*
  * option setting restrictions

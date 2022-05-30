@@ -486,9 +486,7 @@ E int NDECL(Boots_on);
 E int NDECL(Boots_off);
 E int NDECL(Cloak_off);
 E int NDECL(Shield_off);
-#ifdef TOURIST
 E int NDECL(Shirt_off);
-#endif
 E void NDECL(Amulet_off);
 E void FDECL(Ring_on, (struct obj *));
 E void FDECL(Ring_off, (struct obj *));
@@ -763,9 +761,7 @@ E void FDECL(cant_reach_floor, (int, int, BOOLEAN_P, BOOLEAN_P));
 E const char *FDECL(surface, (int, int));
 E const char *FDECL(ceiling, (int, int));
 E struct engr *FDECL(engr_at, (XCHAR_P, XCHAR_P));
-#ifdef ELBERETH
 E int FDECL(sengr_at, (const char *, XCHAR_P, XCHAR_P));
-#endif
 E void FDECL(u_wipe_engr, (int));
 E void FDECL(wipe_engr_at, (XCHAR_P, XCHAR_P, XCHAR_P));
 E void FDECL(read_engr_at, (int, int));
@@ -2077,6 +2073,7 @@ E const char *NDECL(bottlename);
 extern boolean is_dark_mix_color(struct obj *);
 extern boolean is_colorless_mix_potion(struct obj *);
 extern const char* get_base_mix_color(struct obj *);
+extern short mixtype(struct obj *, struct obj *);
 
 /* ### pray.c ### */
 
@@ -2470,6 +2467,7 @@ E void FDECL(initialspell, (struct obj *));
 E void NDECL(dump_spells);
 E boolean FDECL(parse_spellorder, (char *));
 extern const char* spelltypemnemonic(int);
+extern int num_spells(void);
 
 /* ### steal.c ### */
 
@@ -2490,7 +2488,6 @@ E struct obj *FDECL(findgold, (struct obj *));
 
 /* ### steed.c ### */
 
-#ifdef STEED
 E void NDECL(rider_cant_reach);
 E boolean FDECL(can_saddle, (struct monst *));
 E int FDECL(use_saddle, (struct obj *));
@@ -2503,7 +2500,6 @@ E void NDECL(kick_steed);
 E void FDECL(dismount_steed, (int));
 E void FDECL(place_monster, (struct monst *, int, int));
 E boolean FDECL(stucksteed, (BOOLEAN_P));
-#endif
 
 /* ### sys.c ### */
 
