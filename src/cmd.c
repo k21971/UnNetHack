@@ -2797,8 +2797,9 @@ boolean incl_wsegs;
 
     if (mtmp->mextra) {
         sz += (int) sizeof (struct mextra);
-        if (MNAME(mtmp))
-            sz += (int) strlen(MNAME(mtmp)) + 1;
+        if (MGIVENNAME(mtmp)) {
+            sz += (int) strlen(MGIVENNAME(mtmp)) + 1;
+        }
         if (EGD(mtmp))
             sz += (int) sizeof (struct egd);
         if (EPRI(mtmp))
@@ -4994,7 +4995,7 @@ doautofight()
         for (j = -1; j <= 1; j++) {
             if (!isok(u.ux+i, u.uy+j)) continue;
             mtmp = m_at(u.ux+i, u.uy+j);
-            if (mtmp && canspotmon(mtmp) && !is_safepet(mtmp)) {
+            if (mtmp && canspotmon(mtmp) && !is_safemon(mtmp)) {
                 if (attack(mtmp)) return 1;
                 break;
             }

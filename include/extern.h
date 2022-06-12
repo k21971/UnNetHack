@@ -331,6 +331,7 @@ E void FDECL(bury_obj, (struct obj *));
 #ifdef INVISIBLE_OBJECTS
 E struct obj * FDECL(vobj_at, (XCHAR_P, XCHAR_P));
 #endif /* INVISIBLE_OBJECTS */
+extern int is_safemon(struct monst *);
 E void FDECL(magic_map_background, (XCHAR_P, XCHAR_P, int));
 E void FDECL(map_background, (XCHAR_P, XCHAR_P, int));
 E void FDECL(map_trap, (struct trap *, int));
@@ -412,8 +413,8 @@ E char *FDECL(coord_desc, (int, int, char *, CHAR_P));
 E boolean FDECL(getpos_menu, (coord *, int));
 extern int getpos(coord *, boolean, const char *);
 E void FDECL(getpos_sethilite, (void (*f)(int), boolean (*d)(int,int)));
-E void FDECL(new_mname, (struct monst *, int));
-E void FDECL(free_mname, (struct monst *));
+extern void new_mgivenname(struct monst *, int);
+extern void free_mgivenname(struct monst *);
 E void FDECL(new_oname, (struct obj *, int));
 E void FDECL(free_oname, (struct obj *));
 E const char *FDECL(safe_oname, (struct obj *));
@@ -913,6 +914,7 @@ E boolean FDECL(invocation_pos, (XCHAR_P, XCHAR_P));
 E boolean FDECL(test_move, (int, int, int, int, int));
 E boolean NDECL(u_rooted);
 E void NDECL(domove);
+extern void runmode_delay_output(void);
 E boolean NDECL(overexertion);
 E void NDECL(invocation_message);
 E void NDECL(switch_terrain);
@@ -2609,7 +2611,7 @@ E void FDECL(reset_utrap, (BOOLEAN_P));
 E void FDECL(dotrap, (struct trap *, unsigned));
 E void FDECL(seetrap, (struct trap *));
 E void FDECL(feeltrap, (struct trap *));
-E int FDECL(mintrap, (struct monst *));
+extern int mintrap(struct monst *, unsigned);
 E void FDECL(instapetrify, (const char *));
 E void FDECL(minstapetrify, (struct monst *, BOOLEAN_P));
 #ifdef WEBB_DISINT

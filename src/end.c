@@ -289,7 +289,7 @@ register struct monst *mtmp;
         killer.format = KILLED_BY;
     }
     /* _the_ <invisible> <distorted> ghost of Dudley */
-    if (mtmp->data == &mons[PM_GHOST] && has_mname(mtmp)) {
+    if (mtmp->data == &mons[PM_GHOST] && has_mgivenname(mtmp)) {
         Strcat(buf, "the ");
         killer.format = KILLED_BY;
     }
@@ -300,7 +300,9 @@ register struct monst *mtmp;
 
     if(mtmp->data == &mons[PM_GHOST]) {
         Strcat(buf, "ghost");
-        if (has_mname(mtmp)) Sprintf(eos(buf), " of %s", MNAME(mtmp));
+        if (has_mgivenname(mtmp)) {
+            Sprintf(eos(buf), " of %s", MGIVENNAME(mtmp));
+        }
     } else if(mtmp->isshk) {
         Sprintf(eos(buf), "%s %s, the shopkeeper",
                 (mtmp->female ? "Ms." : "Mr."), shkname(mtmp));
@@ -311,8 +313,9 @@ register struct monst *mtmp;
         Strcat(buf, m_monnam(mtmp));
     } else {
         Strcat(buf, mtmp->data->mname);
-        if (has_mname(mtmp))
-            Sprintf(eos(buf), " called %s", MNAME(mtmp));
+        if (has_mgivenname(mtmp)) {
+            Sprintf(eos(buf), " called %s", MGIVENNAME(mtmp));
+        }
     }
 
     if (multi) {
