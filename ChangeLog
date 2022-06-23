@@ -105,6 +105,7 @@
 	  - 'Readable' Hawaiian shirt designs (by Michael Meyer)
 	  - Dragon scales and unicorn horns don't drop from repeatedly revived monsters
 	  - Reduced chance of dropping chromatic dragon scales
+	  - Prevent monsters from picking up gold in shops
 
 	* Imported NetHack 3.7 features
 	  - Mild Zombie Apocalypse (monsters killed by zombies might rise as zombies)
@@ -132,6 +133,7 @@
 	  - Don't reveal description of spellbook when writing it blind
 	  - Fix statuscolors crash due to incorrect color name parsing
 	  - Empty bag of tricks were considered magical bags
+	  - Fix class of starting vampire blood potions for player vampires (reported by K2)
 
 	* build fixes:
 	  - Fix compiling with -fno-common
