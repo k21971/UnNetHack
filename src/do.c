@@ -327,27 +327,43 @@ register struct obj *obj;
     if (Has_contents(obj) && !obj->olocked) {
         int blessed = 0;
         int cursed = 0;
-        struct obj * otmp;
+        struct obj *otmp, *cobj, *nobj;
 
         obj->cknown = 1;
 
-        for (otmp = obj->cobj; otmp; otmp = otmp->nobj) {
+        for (otmp = obj->cobj; otmp; ) {
+            nobj = otmp->nobj;
             if (otmp->blessed) {
                 blessed++;
             }
             if (otmp->cursed) {
                 cursed++;
             }
-            if (!Hallucination) {
+            if (!Hallucination && !otmp->bknown) {
                 otmp->bknown = 1;
+                for (cobj = obj->cobj; cobj; cobj = cobj->nobj) {
+                    if (merged(&cobj, &otmp)) {
+                        break;
+                    }
+                }
             }
+            otmp = nobj;
         }
         /* even when hallucinating, if you get no flashes at all, you know
          * everything's uncursed, so save the player the trouble of manually
          * naming them all */
         if (Hallucination && blessed + cursed == 0) {
-            for (otmp = obj->cobj; otmp; otmp = otmp->nobj) {
-                otmp->bknown = 1;
+            for (otmp = obj->cobj; otmp; ) {
+                nobj = otmp->nobj;
+                if (!otmp->bknown) {
+                    otmp->bknown = 1;
+                    for (cobj = obj->cobj; cobj; cobj = cobj->nobj) {
+                        if (merged(&cobj, &otmp)) {
+                            break;
+                        }
+                    }
+                }
+                otmp = nobj;
             }
         }
 
