@@ -177,7 +177,6 @@ curses_block(boolean noscroll) /* noscroll - blocking because of msgtype
     int height, width, moreattr, oldcrsr, ret = 0,
         brdroffset = curses_window_has_border(MESSAGE_WIN) ? 1 : 0;
     WINDOW *win = curses_get_nhwin(MESSAGE_WIN);
-    char *resp = " \n\033"; /* space, enter, esc */
 
     curses_get_window_size(MESSAGE_WIN, &height, &width);
     /* -3: room for ">>_" */
