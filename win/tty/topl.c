@@ -223,8 +223,6 @@ more(void)
     if (flags.standout)
         standoutend();
 
-    xwaitforspace("\033 ");
-
     if (morc == '\033') {
         if (!(cw->flags & WIN_NOSTOP)) {
             cw->flags |= WIN_STOP;
