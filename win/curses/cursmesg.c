@@ -175,7 +175,7 @@ curses_block(boolean noscroll) /* noscroll - blocking because of msgtype
     static const char resp[] = " \r\n\033"; /* space, enter, esc */
     static int prev_x = -1, prev_y = -1, blink = 0;
     int height, width, moreattr, oldcrsr, ret = 0,
-        brdroffset = curses_window_has_border(MESSAGE_WIN) ? 1 : 0;
+        brdroffset = curses_window_has_border(MESSAGE_WIN) ? 1 : 0,
         morewidth = (iflags.msg_is_alert ? 6 : 3); /* 3/6 for ">>" / "<TAB>" */
     WINDOW *win = curses_get_nhwin(MESSAGE_WIN);
 
