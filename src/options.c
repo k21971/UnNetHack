@@ -502,7 +502,8 @@ static struct Comp_Opt
 #endif
     { "whatis_coord", "show coordinates when auto-describing cursor position", 1, SET_IN_GAME },
     { "whatis_filter", "filter coordinate locations when targeting", 1, SET_IN_GAME },
-    { "windowcolors",  "the foreground/background colors of windows",   /*WC*/
+    { "windowborders", "0 (off), 1 (on), 2 (auto)", 9, SET_IN_GAME }, /*WC2*/
+    { "windowcolors",  "the foreground/background colors of windows", /*WC*/
       80, DISP_IN_GAME },
     { "windowtype", "windowing system to use", WINTYPELEN, DISP_IN_GAME },
 #ifdef EXOTIC_PETS
@@ -3966,13 +3967,12 @@ goodfruit:
             return FALSE;
         } else {
             if (negated)
-                iflags.wc2_windowborders = 2; /* Off */
+                iflags.wc2_windowborders = 0; /* Off */
             else if (!op)
                 iflags.wc2_windowborders = 1; /* On */
             else    /* Value supplied */
                 iflags.wc2_windowborders = atoi(op);
-            if ((iflags.wc2_windowborders > 3) ||
-                (iflags.wc2_windowborders < 1)) {
+            if ((iflags.wc2_windowborders > 2) || (iflags.wc2_windowborders < 0)) {
                 iflags.wc2_windowborders = 0;
                 badoption(opts);
                 return FALSE;
@@ -5018,6 +5018,24 @@ special_handling(const char *optname, boolean setinitial, boolean setfromfile)
         }
         destroy_nhwindow(tmpwin);
         retval = TRUE;
+    } else if (!strcmp("windowborders", optname)) {
+        menu_item *window_pick = (menu_item *)0;
+
+        tmpwin = create_nhwindow(NHW_MENU);
+        start_menu(tmpwin);
+        any.a_int = 1; /* off */
+        add_menu(tmpwin, NO_GLYPH, MENU_DEFCNT, &any, 'a', 0, ATR_NONE, "Off", MENU_UNSELECTED);
+        any.a_int = 2; /* on */
+        add_menu(tmpwin, NO_GLYPH, MENU_DEFCNT, &any, 'b', 0, ATR_NONE, "On", MENU_UNSELECTED);
+        any.a_int = 3; /* auto */
+        add_menu(tmpwin, NO_GLYPH, MENU_DEFCNT, &any, 'c', 0, ATR_NONE, "Auto", MENU_UNSELECTED);
+        end_menu(tmpwin, "Select border mode:");
+        if (select_menu(tmpwin, PICK_ONE, &window_pick) > 0) {
+            iflags.wc2_windowborders = window_pick->item.a_int - 1;
+            free(window_pick);
+        }
+        destroy_nhwindow(tmpwin);
+        retval = TRUE;
 #ifdef AUTOPICKUP_EXCEPTIONS
     } else if (!strcmp("autopickup_exception", optname)) {
         handler_autopickup_exception();
@@ -5367,9 +5385,9 @@ get_compopt_value(const char *optname, char *buf)
 # endif /* MSDOS */
 #endif /* VIDEOSHADES */
     else if (!strcmp(optname, "windowborders"))
-        Sprintf(buf, "%s", iflags.wc2_windowborders == 1     ? "1=on" :
-                iflags.wc2_windowborders == 2             ? "2=off" :
-                iflags.wc2_windowborders == 3             ? "3=auto" :
+        Sprintf(buf, "%s", iflags.wc2_windowborders == 0 ? "0=off" :
+                iflags.wc2_windowborders == 1            ? "1=on" :
+                iflags.wc2_windowborders == 2            ? "2=auto" :
                 defopt);
     else if (!strcmp(optname, "windowtype"))
         Sprintf(buf, "%s", windowprocs.name);
@@ -6043,12 +6061,12 @@ is_wc2_option(const char *optnam)
 static boolean
 wc2_supported(const char *optnam)
 {
-    int k = 0;
-    while (wc2_options[k].wc_name) {
-        if (!strcmp(wc2_options[k].wc_name, optnam) &&
-            (windowprocs.wincap2 & wc2_options[k].wc_bit))
-            return TRUE;
-        k++;
+    int k;
+
+    for (k = 0; wc2_options[k].wc_name; ++k) {
+        if (!strcmp(wc2_options[k].wc_name, optnam)) {
+            return (windowprocs.wincap2 & wc2_options[k].wc_bit) ? TRUE : FALSE;
+        }
     }
     return FALSE;
 }
