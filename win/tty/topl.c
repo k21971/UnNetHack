@@ -213,7 +213,7 @@ more(void)
        standoutbeg();
     if (iflags.msg_is_alert) {
         term_start_color(CLR_ORANGE);
-        putsyms("<TAB>");
+        putsyms(" <TAB>");
         term_end_color();
         xwaitforspace("\t");
     } else {

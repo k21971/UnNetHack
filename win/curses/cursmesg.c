@@ -201,13 +201,19 @@ curses_block(boolean noscroll) /* noscroll - blocking because of msgtype
     curses_toggle_color_attr(win, MORECOLOR, moreattr, ON);
     if (blink) {
         wattron(win, A_BLINK);
-        mvwprintw(win, my, mx, ">"), mx += 1;
+        mvwprintw(win, my, mx, (iflags.msg_is_alert ? " <TAB" : " >")), mx += 1;
         wattroff(win, A_BLINK);
         waddstr(win, ">"), mx += 1;
     } else {
-        mvwprintw(win, my, mx, ">>"), mx += 2;
+        mvwprintw(win, my, mx, (iflags.msg_is_alert ? " <TAB>" : " >>")), mx += 2;
     }
     curses_toggle_color_attr(win, MORECOLOR, moreattr, OFF);
+    if (iflags.msg_is_alert) {
+        curses_alert_main_borders(TRUE);
+        wrefresh(win);
+    }
+    while (iflags.msg_is_alert && (ret = wgetch(win) != '\t'));
+    curses_alert_main_borders(FALSE);
     wrefresh(win);
 
     /* cancel mesg suppression; all messages will have had chance to be read */
@@ -215,6 +221,8 @@ curses_block(boolean noscroll) /* noscroll - blocking because of msgtype
 
     oldcrsr = curs_set(1);
     do {
+        if (iflags.msg_is_alert)
+            break;
         ret = wgetch(win);
         if (ret == ERR || ret == '\0') {
             ret = '\n';
