@@ -176,15 +176,16 @@ curses_block(boolean noscroll) /* noscroll - blocking because of msgtype
     static int prev_x = -1, prev_y = -1, blink = 0;
     int height, width, moreattr, oldcrsr, ret = 0,
         brdroffset = curses_window_has_border(MESSAGE_WIN) ? 1 : 0;
+        morewidth = (iflags.msg_is_alert ? 6 : 3); /* 3/6 for ">>" / "<TAB>" */
     WINDOW *win = curses_get_nhwin(MESSAGE_WIN);
 
     curses_get_window_size(MESSAGE_WIN, &height, &width);
     /* -3: room for ">>_" */
-    if (mx - brdroffset > width - 3) {
+    if (mx - brdroffset > width - morewidth - 1) {
         if (my - brdroffset < height - 1) {
             ++my, mx = brdroffset;
         } else {
-            mx = width - 3 + brdroffset;
+            mx = width - morewidth - 1 + brdroffset;
         }
     }
     /* if ">>" (--More--) is being rendered at the same spot as before,
@@ -200,11 +201,11 @@ curses_block(boolean noscroll) /* noscroll - blocking because of msgtype
     curses_toggle_color_attr(win, MORECOLOR, moreattr, ON);
     if (blink) {
         wattron(win, A_BLINK);
-        mvwprintw(win, my, mx, (iflags.msg_is_alert ? " <TAB" : " >")), mx += 1;
+        mvwprintw(win, my, mx, (iflags.msg_is_alert ? " <TAB" : " >")), mx += morewidth - 1;
         wattroff(win, A_BLINK);
         waddstr(win, ">"), mx += 1;
     } else {
-        mvwprintw(win, my, mx, (iflags.msg_is_alert ? " <TAB>" : " >>")), mx += 2;
+        mvwprintw(win, my, mx, (iflags.msg_is_alert ? " <TAB>" : " >>")), mx += morewidth;
     }
     curses_toggle_color_attr(win, MORECOLOR, moreattr, OFF);
     if (iflags.msg_is_alert) {
@@ -236,13 +237,12 @@ curses_block(boolean noscroll) /* noscroll - blocking because of msgtype
     if (height == 1) {
         curses_clear_unhighlight_message_window();
     } else {
-        mx -= 2, mvwprintw(win, my, mx, "  "); /* back up and blank out ">>" */
+        mx -= morewidth, mvwprintw(win, my, mx, "%*s", (int) morewidth, ""); /* back up and blank out ">>" */
         if (!noscroll) {
             scroll_window(MESSAGE_WIN);
         }
         wrefresh(win);
     }
-
     return ret;
 }
 
