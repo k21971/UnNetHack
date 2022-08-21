@@ -1832,7 +1832,6 @@ mk_dgl_extrainfo()
         fprintf(extrai, "%i|%c %s", sortval, (u.uhave.amulet ? 'A' : ' '), tmpdng);
         fclose(extrai);
     }
-#endif /* EXTRAINFO_FN */
 }
 
 /*end.c*/
