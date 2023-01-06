@@ -460,7 +460,7 @@ if test "$enable_tty_graphics" != "no" -a "$host_os" != mingw32; then
 fi
 
 
-NETHACK_ARG_WITH_PARAM(whereis-file,[Log information about running games],WHEREIS_FILE,yes,FILE,[%n.whereis])
+NETHACK_ARG_WITH_PARAM(whereis-file,[Log information about running games],WHEREIS_FILE,yes,FILE,["/whereis/%n.whereis"])
 
 NETHACK_ARG_WITH_PARAM(wizmode,[enable wizard mode for the specified user],WIZARD,no,USER,[wizard])
 
