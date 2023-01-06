@@ -434,7 +434,7 @@ if test "$enable_dump" != "no" ; then
 	NETHACK_ARG(dump-text,[Dump a text file],DUMP_TEXT_LOG,yes)
 	NETHACK_ARG(dump-html,[Dump an HTML file],DUMP_HTML_LOG,yes)
 	if test "$enable_dump_html" != "no" ; then
-		NETHACK_ARG_WITH_PARAM(dump-html-css-file,[Path to the css dump file],DUMP_HTML_CSS_FILE,yes,FILE,"/unnethack-6.0.6/share/unnethack/unnethack_dump.css")
+		NETHACK_ARG_WITH_PARAM(dump-html-css-file,[Path to the css dump file],DUMP_HTML_CSS_FILE,yes,FILE,"/unnethack-6.0.7/unnethack_dump.css")
 		NETHACK_ARG(dump-html-css-embedded,[CSS file should be included in the HTML dump],DUMP_HTML_CSS_EMBEDDED,yes)
 	fi
 fi
@@ -526,17 +526,17 @@ AC_DEFUN([NETHACK_DIR_SET],
 
 # set doc directory manually
 if test "$enable_file_areas" != "no" ; then
-  AC_SUBST(FILE_AREA_DOC,[${docdir}/unnethack])
+  AC_SUBST(FILE_AREA_DOC,[${docdir}])
   AC_DEFINE_UNQUOTED(FILE_AREA_DOC, [AUTOCONF_DOCDIR"/unnethack"],
     [Location of human-readable documentation])
 else
   # ignore ${docdir} if FILE_AREAS is not defined
-  AC_SUBST(FILE_AREA_DOC,[${datadir}/unnethack])
+  AC_SUBST(FILE_AREA_DOC,[${datadir}])
 fi
 
-NETHACK_DIR_SET(gamesdir, gamesdir, [LOCALSTATEDIR/unnethack],
-		[${localstatedir}/unnethack],
-		[AUTOCONF_LOCALSTATEDIR"/unnethack"],
+NETHACK_DIR_SET(gamesdir, gamesdir, [LOCALSTATEDIR],
+		[${localstatedir}],
+		[AUTOCONF_LOCALSTATEDIR],
 		FILE_AREA_VAR, [Location of other files which may be modified])
 
 NETHACK_DIR_SET(bonesdir, bones, [GAMESDIR/bones],
@@ -554,14 +554,14 @@ NETHACK_DIR_SET(leveldir, level, [GAMESDIR/level],
 		[FILE_AREA_VAR"/level"],
 		FILE_AREA_LEVL, [Location of level files (rw)])
 
-NETHACK_DIR_SET(sharedir, share, [DATADIR/unnethack],
-		[${datadir}/unnethack],
-		[AUTOCONF_DATADIR"/unnethack"],
+NETHACK_DIR_SET(sharedir, share, [DATADIR],
+		[${datadir}],
+		[AUTOCONF_DATADIR],
 		FILE_AREA_SHARE, [For read-only, architecture independent files])
 
-NETHACK_DIR_SET(unsharedir, unshare, [DATADIR/unnethack],
-		[${datadir}/unnethack],
-		[AUTOCONF_DATADIR"/unnethack"],
+NETHACK_DIR_SET(unsharedir, unshare, [DATADIR],
+		[${datadir}],
+		[AUTOCONF_DATADIR],
 		FILE_AREA_UNSHARE, [For read-only, architecture dependent files])
 
 

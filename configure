@@ -884,7 +884,7 @@ x_libraries=NONE
 bindir='${exec_prefix}/bin'
 sbindir='${exec_prefix}/sbin'
 libexecdir='${exec_prefix}/libexec'
-datarootdir='${prefix}/share'
+datarootdir='${prefix}'
 datadir='${datarootdir}'
 sysconfdir='${prefix}/etc'
 sharedstatedir='${prefix}/com'
@@ -1536,7 +1536,7 @@ Optional Features:
   --enable-dump-html      Dump an HTML file (default=yes)
   --enable-dump-html-css-file=FILE
                           Path to the css dump file (default=yes, default
-                          file=["/unnethack-6.0.6/share/unnethack/unnethack_dump.css"])
+                          file=["/unnethack-6.0.7/unnethack_dump.css"])
   --enable-dump-html-css-embedded
                           CSS file should be included in the HTML dump
                           (default=yes)
@@ -1560,16 +1560,16 @@ Optional Packages:
   --with-owner=USER       Set the owner of installed files (default=games)
   --with-group=GROUP      Set the group of installed files (default=bin)
   --with-gamesdir=DIR     Location of other files which may be modified
-                          (default=LOCALSTATEDIR/unnethack)
+                          (default=LOCALSTATEDIR)
   --with-bonesdir=DIR     Location of bones files (rw)
                           (default=GAMESDIR/bones)
   --with-savesdir=DIR     Location of save files (rw) (default=GAMESDIR/saves)
   --with-leveldir=DIR     Location of level files (rw)
                           (default=GAMESDIR/level)
   --with-sharedir=DIR     For read-only, architecture independent files
-                          (default=DATADIR/unnethack)
+                          (default=DATADIR)
   --with-unsharedir=DIR   For read-only, architecture dependent files
-                          (default=DATADIR/unnethack)
+                          (default=DATADIR)
 
 Some influential environment variables:
   CC          C compiler
@@ -7503,10 +7503,10 @@ if test ${enable_dump_html_css_file+y}
 then :
   enableval=$enable_dump_html_css_file; if test "$enableval" != no; then enable_dump_html_css_file=yes;
          if test "$enableval" != yes; then dump_html_css_file=$enableval;
-         else dump_html_css_file="/unnethack-6.0.6/share/unnethack/unnethack_dump.css"; fi;
+         else dump_html_css_file="/unnethack-6.0.7/unnethack_dump.css"; fi;
         else enable_dump_html_css_file=no; fi
 else $as_nop
-  enable_dump_html_css_file=yes;dump_html_css_file="/unnethack-6.0.6/share/unnethack/unnethack_dump.css"
+  enable_dump_html_css_file=yes;dump_html_css_file="/unnethack-6.0.7/unnethack_dump.css"
 fi
 
    if test "$enable_dump_html_css_file" != "no" ; then
@@ -7787,14 +7787,14 @@ printf "%s\n" "#define DEBUG_FUZZER /**/" >>confdefs.h
 
 # set doc directory manually
 if test "$enable_file_areas" != "no" ; then
-  FILE_AREA_DOC=${docdir}/unnethack
+  FILE_AREA_DOC=${docdir}
 
 
-printf "%s\n" "#define FILE_AREA_DOC AUTOCONF_DOCDIR\"/unnethack\"" >>confdefs.h
+printf "%s\n" "#define FILE_AREA_DOC AUTOCONF_DOCDIR" >>confdefs.h
 
 else
   # ignore ${docdir} if FILE_AREAS is not defined
-  FILE_AREA_DOC=${datadir}/unnethack
+  FILE_AREA_DOC=${datadir}
 
 fi
 
@@ -7807,7 +7807,7 @@ if test ${with_gamesdir+y}
 then :
   withval=$with_gamesdir; autoconf_val='"'$withval'"'
 else $as_nop
-  withval=${localstatedir}/unnethack;autoconf_val='AUTOCONF_LOCALSTATEDIR"/unnethack"'
+  withval=${localstatedir};autoconf_val='AUTOCONF_LOCALSTATEDIR'
 fi
 
    if test "$enable_file_areas" != "no" ; then
@@ -7821,9 +7821,9 @@ printf "%s\n" "$withval" >&6; }
    else
      # set default value if FILE_AREAS is not defined
      if test "FILE_AREA_VAR" != "FILE_AREA_SAVE" ; then
-       tmp_installdir=${datadir}/unnethack
+       tmp_installdir=${datadir}
      else
-       tmp_installdir=${datadir}/unnethack/save
+       tmp_installdir=${datadir}/save
      fi
      FILE_AREA_VAR=${tmp_installdir}
 
@@ -7855,9 +7855,9 @@ printf "%s\n" "$withval" >&6; }
    else
      # set default value if FILE_AREAS is not defined
      if test "FILE_AREA_BONES" != "FILE_AREA_SAVE" ; then
-       tmp_installdir=${datadir}/unnethack
+       tmp_installdir=${datadir}
      else
-       tmp_installdir=${datadir}/unnethack/save
+       tmp_installdir=${datadir}/save
      fi
      FILE_AREA_BONES=${tmp_installdir}
 
@@ -7889,9 +7889,9 @@ printf "%s\n" "$withval" >&6; }
    else
      # set default value if FILE_AREAS is not defined
      if test "FILE_AREA_SAVE" != "FILE_AREA_SAVE" ; then
-       tmp_installdir=${datadir}/unnethack
+       tmp_installdir=${datadir}
      else
-       tmp_installdir=${datadir}/unnethack/save
+       tmp_installdir=${datadir}/save
      fi
      FILE_AREA_SAVE=${tmp_installdir}
 
@@ -7923,9 +7923,9 @@ printf "%s\n" "$withval" >&6; }
    else
      # set default value if FILE_AREAS is not defined
      if test "FILE_AREA_LEVL" != "FILE_AREA_SAVE" ; then
-       tmp_installdir=${datadir}/unnethack
+       tmp_installdir=${datadir}
      else
-       tmp_installdir=${datadir}/unnethack/save
+       tmp_installdir=${datadir}/save
      fi
      FILE_AREA_LEVL=${tmp_installdir}
 
@@ -7943,7 +7943,7 @@ if test ${with_sharedir+y}
 then :
   withval=$with_sharedir; autoconf_val='"'$withval'"'
 else $as_nop
-  withval=${datadir}/unnethack;autoconf_val='AUTOCONF_DATADIR"/unnethack"'
+  withval=${datadir};autoconf_val='AUTOCONF_DATADIR'
 fi
 
    if test "$enable_file_areas" != "no" ; then
@@ -7957,9 +7957,9 @@ printf "%s\n" "$withval" >&6; }
    else
      # set default value if FILE_AREAS is not defined
      if test "FILE_AREA_SHARE" != "FILE_AREA_SAVE" ; then
-       tmp_installdir=${datadir}/unnethack
+       tmp_installdir=${datadir}
      else
-       tmp_installdir=${datadir}/unnethack/save
+       tmp_installdir=${datadir}/save
      fi
      FILE_AREA_SHARE=${tmp_installdir}
 
@@ -7977,7 +7977,7 @@ if test ${with_unsharedir+y}
 then :
   withval=$with_unsharedir; autoconf_val='"'$withval'"'
 else $as_nop
-  withval=${datadir}/unnethack;autoconf_val='AUTOCONF_DATADIR"/unnethack"'
+  withval=${datadir};autoconf_val='AUTOCONF_DATADIR'
 fi
 
    if test "$enable_file_areas" != "no" ; then
@@ -7991,9 +7991,9 @@ printf "%s\n" "$withval" >&6; }
    else
      # set default value if FILE_AREAS is not defined
      if test "FILE_AREA_UNSHARE" != "FILE_AREA_SAVE" ; then
-       tmp_installdir=${datadir}/unnethack
+       tmp_installdir=${datadir}
      else
-       tmp_installdir=${datadir}/unnethack/save
+       tmp_installdir=${datadir}/save
      fi
      FILE_AREA_UNSHARE=${tmp_installdir}
 

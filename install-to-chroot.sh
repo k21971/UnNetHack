@@ -21,11 +21,11 @@ COMPRESSBIN="/bin/gzip"
 NH_GIT="/home/build/UnNetHack"
 NH_BRANCH="master"
 # HACKDIR from include/config.h; aka nethack subdir inside chroot
-NHSUBDIR="unnethack-6.0.6"
+NHSUBDIR="unnethack-6.0.7"
 # VAR_PLAYGROUND from include/unixconf.h
-NH_VAR_PLAYGROUND="/unnethack-6.0.6/var/unnethack"
+NH_VAR_PLAYGROUND="/unnethack-6.0.7/var"
 # nhdat location
-NHDAT_DIR="/unnethack-6.0.6/share/unnethack"
+NHDAT_DIR="/unnethack-6.0.7"
 # END OF CONFIG
 ##############################################################################
 
@@ -50,8 +50,8 @@ set -e
 umask 022
 
 echo "Creating inprogress and userdata directories"
-mkdir -p "$NAO_CHROOT/dgldir/inprogress-un606"
-chown "$USRGRP" "$NAO_CHROOT/dgldir/inprogress-un606"
+mkdir -p "$NAO_CHROOT/dgldir/inprogress-un607"
+chown "$USRGRP" "$NAO_CHROOT/dgldir/inprogress-un607"
 mkdir -p "$NAO_CHROOT/dgldir/extrainfo-un"
 chown "$USRGRP" "$NAO_CHROOT/dgldir/extrainfo-un"
 
@@ -61,6 +61,7 @@ mkdir -p "$NAO_CHROOT/$NHSUBDIR"
 echo "Creating NetHack variable dir stuff."
 mkdir -p "$NAO_CHROOT$NH_VAR_PLAYGROUND"
 mkdir -p "$NAO_CHROOT$NH_VAR_PLAYGROUND/saves"
+mkdir -p "$NAO_CHROOT$NH_VAR_PLAYGROUND/saves/backup"
 mkdir -p "$NAO_CHROOT$NH_VAR_PLAYGROUND/level"
 mkdir -p "$NAO_CHROOT$NH_VAR_PLAYGROUND/bones"
 mkdir -p "$NAO_CHROOT$NH_VAR_PLAYGROUND/whereis"
@@ -105,7 +106,7 @@ RECOVER="$NETHACK_GIT/util/recover"
 
 if [ -n "$RECOVER" -a -e "$RECOVER" ]; then
   echo "Copying $RECOVER"
-  cp "$RECOVER" "$NAO_CHROOT/$NHSUBDIR/var/unnethack"
+  cp "$RECOVER" "$NAO_CHROOT/$NHSUBDIR/var"
   LIBS="$LIBS `findlibs $RECOVER`"
   cd "$NAO_CHROOT"
 fi
