@@ -93,6 +93,7 @@
 	  - Output "You begin awkwardly bashing" for currently unskilled but
 	    skillable weapons
 	  - No paranoid prompt for safe traps when flying or levitating (reported by hackemslashem)
+	  - Show prayer stats in Attributes menu (from dNetHack)
 
 	* skill changes:
 	  - Allow convicts to become skilled in broadsword (reported by RojjaCebolla)
@@ -108,6 +109,7 @@
 	  - Dragon scales and unicorn horns don't drop from repeatedly revived monsters
 	  - Reduced chance of dropping chromatic dragon scales
 	  - Prevent monsters from picking up gold in shops
+	  - Colored wall patch (by L via EvilHack)
 
 	* Imported NetHack 3.7 features
 	  - Mild Zombie Apocalypse (monsters killed by zombies might rise as zombies)
