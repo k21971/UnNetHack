@@ -1545,7 +1545,7 @@ Optional Features:
   --enable-utf8-glyphs    Enable UTF-8 glyphs in TTY (default=yes)
   --enable-whereis-file=FILE
                           Log information about running games (default=yes,
-                          default file=["/whereis/%n.whereis"])
+                          default file=["/unnethack-6.0.7/var/whereis/%n.whereis"])
   --enable-wizmode=USER   enable wizard mode for the specified user
                           (default=no, default user=[wizard])
   --enable-file-areas     Place files in different directories (default=yes)
@@ -7619,7 +7619,7 @@ then :
          else whereis_file=%n.whereis; fi;
         else enable_whereis_file=no; fi
 else $as_nop
-  enable_whereis_file=yes;whereis_file="/whereis/%n.whereis"
+  enable_whereis_file=yes;whereis_file="/unnethack-6.0.7/var/whereis/%n.whereis"
 fi
 
    if test "$enable_whereis_file" != "no" ; then
