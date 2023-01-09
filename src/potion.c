@@ -2536,8 +2536,10 @@ dip(struct obj *potion, struct obj *obj)
 
         short mixed_otyp;
         if ((mixture = mixtype(obj, potion)) != 0) {
+            /* mixable potions */
             mixed_otyp = mixture;
         } else {
+            /* unmixable potions, do something else */
             switch (obj->odiluted ? 1 : rnd(8)) {
             case 1:
                 mixed_otyp = POT_WATER;
@@ -2550,6 +2552,7 @@ dip(struct obj *potion, struct obj *obj)
 
             case 4:
             {
+                /* random potion */
                 struct obj *otmp;
                 otmp = mkobj(POTION_CLASS, FALSE);
                 mixed_otyp = otmp->otyp;
@@ -2588,6 +2591,8 @@ dip(struct obj *potion, struct obj *obj)
         } else {
             mixed_potion = potion;
         }
+        costly_alteration(mixed_potion, COST_TRANSFORM);
+
         /* the mixed potions don't get lost */
         mixed_potion->quan = count * 2;
         mixed_potion->owt = weight(mixed_potion);
@@ -2598,11 +2603,10 @@ dip(struct obj *potion, struct obj *obj)
             mixed_potion->odiluted = (obj->odiluted || potion->odiluted);
         }
 
-        if (count >= obj->quan) {
-            useupall(obj);
-        } else {
-            useupall(splitobj(obj, count));
-        }
+        /* remove the dissolved potion */
+        struct obj *dissolved_potion = (count >= obj->quan) ? obj : splitobj(obj, count);
+        costly_alteration(dissolved_potion, COST_TRANSFORM);
+        useupall(dissolved_potion);
 
         return(1);
     }
@@ -2765,6 +2769,9 @@ more_dips:
         (mixture = mixtype(obj, potion)) != 0) {
         char oldbuf[BUFSZ], newbuf[BUFSZ];
         short old_otyp = potion->otyp;
+        short obj_otyp = obj->otyp;
+        boolean obj_cursed = obj->cursed;
+        char obj_oclass = obj->oclass;
         boolean old_dknown = FALSE;
         boolean more_than_one = potion->quan > 1;
 
@@ -2784,7 +2791,7 @@ more_dips:
 
         /* MRKR: Gems dissolve in acid to produce new potions */
         if (obj->oclass == GEM_CLASS && potion->otyp == POT_ACID) {
-            struct obj *singlegem = (obj->quan > 1L ?  splitobj(obj, 1L) : obj);
+            struct obj *singlegem = (obj->quan > 1L ? splitobj(obj, 1L) : obj);
 
             if (potion->otyp == POT_ACID &&
                 (obj->otyp == DILITHIUM_CRYSTAL || potion->cursed || !rn2(30))) {
@@ -2794,6 +2801,8 @@ more_dips:
                     pline("Warning, Captain!  The warp core has been breached!");
                 }
                 pline("BOOM! %s explodes!", The(xname(singlegem)));
+                costly_alteration(singlepotion, COST_DSTROY);
+                costly_alteration(singlegem, COST_DSTROY);
                 if (obj->otyp == DILITHIUM_CRYSTAL) {
                     tele();
                 }
@@ -2812,16 +2821,23 @@ more_dips:
 
             pline("%s dissolves in %s.", The(xname(singlegem)), the(xname(singlepotion)));
             makeknown(POT_ACID);
+            costly_alteration(singlegem, COST_DISSOLVE);
             useup(singlegem);
         }
 
-        costly_alteration(singlepotion, COST_NUTRLZ);
+        if (obj_otyp == UNICORN_HORN) {
+            costly_alteration(singlepotion, COST_NUTRLZ);
+            singlepotion->blessed = 0;
+        } else if (obj_oclass == GEM_CLASS) {
+            costly_alteration(singlepotion, COST_TRANSFORM);
+        }
+
         singlepotion->otyp = mixture;
-        singlepotion->blessed = 0;
-        if (mixture == POT_WATER)
+        if (mixture == POT_WATER) {
             singlepotion->cursed = singlepotion->odiluted = 0;
-        else
-            singlepotion->cursed = obj->cursed; /* odiluted left as-is */
+        } else {
+            singlepotion->cursed = obj_cursed; /* odiluted left as-is */
+        }
         singlepotion->bknown = FALSE;
         if (Blind) {
             singlepotion->dknown = FALSE;
@@ -2856,7 +2872,6 @@ more_dips:
         singlepotion = hold_another_object(singlepotion,
                                            "You juggle and drop %s!",
                                            doname(singlepotion), (const char *)0);
-        nhUse(singlepotion);
         update_inventory();
         return(1);
     }
