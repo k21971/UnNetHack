@@ -61,7 +61,7 @@ extern void save_artifacts(int);
 extern void restore_artifacts(int);
 extern const char *artiname(int);
 extern struct obj *mk_artifact(struct obj *, aligntyp);
-extern const char *artifact_name(const char *, short *);
+extern const char *artifact_name(const char *, short *, boolean);
 extern boolean exist_artifact(int, const char *);
 extern void artifact_exists(struct obj *, const char *, boolean);
 extern int nartifact_exist(void);
@@ -442,9 +442,7 @@ extern const char *rndmonnam(void);
 extern const char *hcolor(const char *);
 extern const char *rndcolor(void);
 extern const char *hliquid(const char *);
-#ifdef REINCARNATION
 extern const char *roguename(void);
-#endif
 extern struct obj *realloc_obj(struct obj *, int, genericptr_t, int, const char *);
 extern char *coyotename(struct monst *, char *);
 extern char *rndorcname(char *);
@@ -1022,6 +1020,13 @@ extern void strip_brackets(char *);
     nh_snprintf(__func__, __LINE__, str, size, __VA_ARGS__)
 extern void nh_snprintf(const char *func, int line, char *str, size_t size,
                         const char *fmt, ...);
+
+/* ### insight.c ### */
+
+extern int doattributes(void);
+extern void enlightenment(int, boolean);
+extern int doconduct(void);
+extern void show_conduct(int, boolean);
 
 /* ### invent.c ### */
 
