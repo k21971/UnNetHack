@@ -157,13 +157,9 @@ pline VA_DECL(const char *, line)
     }
     putmesg(line);
     strncpy(prevmsg, line, BUFSZ);
-    if (typ == MSGTYP_ALERT) {
-        iflags.msg_is_alert = TRUE; /* <TAB> */
-    }
     if (typ == MSGTYP_STOP) {
         display_nhwindow(WIN_MESSAGE, TRUE); /* --more-- */
     }
-    iflags.msg_is_alert = FALSE;
 }
 
 /* pline() variant which can override MSGTYPE handling or suppress

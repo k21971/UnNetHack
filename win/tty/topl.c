@@ -235,17 +235,12 @@ more(void)
     if (flags.standout) {
         standoutbeg();
     }
-    if (iflags.msg_is_alert) {
-        term_start_color(CLR_ORANGE);
-        putsyms(" <TAB>");
-        term_end_color();
-        xwaitforspace("\t");
-    } else {
-        putsyms(defmorestr);
-    }
+    putsyms(defmorestr);
     if (flags.standout) {
         standoutend();
     }
+
+    xwaitforspace("\033 ");
 
     if (morc == '\033') {
         if (!(cw->flags & WIN_NOSTOP)) {

@@ -2264,8 +2264,6 @@ parse_config_line(FILE *fp,
                 typ = MSGTYP_STOP;
             } else if (!strcasecmp("stop", msgtype)) {
                 typ = MSGTYP_STOP;
-            } else if (!strcasecmp("alert", msgtype)) {
-                typ = MSGTYP_ALERT;
             }
             if (typ != MSGTYP_NORMAL) {
                 msgpline_add(typ, pattern);
