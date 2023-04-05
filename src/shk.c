@@ -25,8 +25,7 @@ static void kops_gone(boolean);
 static boolean
 muteshk(struct monst *shkp)
 {
-    return ((shkp)->msleeping ||
-            !(shkp)->mcanmove ||
+    return (helpless(shkp) ||
             (shkp)->data->msound <= MS_ANIMAL);
 }
 
@@ -39,7 +38,7 @@ static const char the_contents_of[] = "the contents of ";
 
 static void setpaid(struct monst *);
 static long addupbill(struct monst *);
-static void pacify_shk(struct monst *);
+static void pacify_shk(struct monst *, boolean);
 static struct bill_x *onbill(struct obj *, struct monst *, boolean);
 static struct monst *next_shkp(struct monst *, boolean);
 static long shop_debt(struct eshk *);
@@ -82,12 +81,12 @@ static const char *angrytexts[] = { "quite upset", "ticked off", "furious" };
 
 /*
     Transfer money from inventory to monster when paying
-    shopkeepers, priests, oracle, succubus, & other demons.
+    shopkeepers, priests, oracle, succubus, and other demons.
     Simple with only gold coins.
     This routine will handle money changing when multiple
     coin types is implemented, only appropriate
     monsters will pay change.  (Peaceful shopkeepers, priests
-    & the oracle try to maintain goodwill while selling
+    and the oracle try to maintain goodwill while selling
     their wares or services.  Angry monsters and all demons
     will keep anything they get their hands on.
     Returns the amount actually paid, so we can know
@@ -103,14 +102,15 @@ money2mon(struct monst *mon, long int amount)
         return 0L;
     }
     if (!ygold || ygold->quan < amount) {
-        warning("Paying without %s money?", ygold ? "enough" : "");
+        warning("Paying without %s gold?", ygold ? "enough" : "");
         return 0L;
     }
 
-    if (ygold->quan > amount)
+    if (ygold->quan > amount) {
         ygold = splitobj(ygold, amount);
-    else if (ygold->owornmask)
+    } else if (ygold->owornmask) {
         remove_worn_item(ygold, FALSE); /* quiver */
+    }
     freeinv(ygold);
     add_to_minv(mon, ygold);
     flags.botl = 1;
@@ -133,16 +133,18 @@ money2u(struct monst *mon, long int amount)
         return;
     }
     if (!mongold || mongold->quan < amount) {
-        warning("%s paying without %s money?", a_monnam(mon),
+        warning("%s paying without %s gold?", a_monnam(mon),
                 mongold ? "enough" : "");
         return;
     }
 
-    if (mongold->quan > amount) mongold = splitobj(mongold, amount);
+    if (mongold->quan > amount) {
+        mongold = splitobj(mongold, amount);
+    }
     obj_extract_self(mongold);
 
     if (!merge_choice(invent, mongold) && inv_cnt(FALSE) >= 52) {
-        You("have no room for the money!");
+        You("have no room for the gold!");
         dropy(mongold);
     } else {
         addinv(mongold);
@@ -154,18 +156,23 @@ static struct monst *
 next_shkp(struct monst *shkp, boolean withbill)
 {
     for (; shkp; shkp = shkp->nmon) {
-        if (DEADMONSTER(shkp)) continue;
-        if (shkp->isshk && (ESHK(shkp)->billct || !withbill)) break;
+        if (DEADMONSTER(shkp)) {
+            continue;
+        }
+        if (shkp->isshk && (ESHK(shkp)->billct || !withbill)) {
+            break;
+        }
     }
 
     if (shkp) {
-        if (NOTANGRY(shkp)) {
-            if (ESHK(shkp)->surcharge) pacify_shk(shkp);
-        } else {
-            if (!ESHK(shkp)->surcharge) rile_shk(shkp);
+        if (ANGRY(shkp)) {
+            if (!ESHK(shkp)->surcharge) {
+                rile_shk(shkp);
+            }
         }
     }
-    return(shkp);
+
+    return shkp;
 }
 
 /* called in mon.c */
@@ -183,14 +190,18 @@ shkgone(struct monst *mtmp)
     if (on_level(&eshk->shoplevel, &u.uz)) {
         remove_damage(mtmp, TRUE);
         sroom->resident = (struct monst *)0;
-        if (!search_special(ANY_SHOP))
+        if (!search_special(ANY_SHOP)) {
             level.flags.has_shop = 0;
+        }
 
         /* items on shop floor revert to ordinary objects */
-        for (sx = sroom->lx; sx <= sroom->hx; sx++)
-            for (sy = sroom->ly; sy <= sroom->hy; sy++)
-                for (otmp = level.objects[sx][sy]; otmp; otmp = otmp->nexthere)
+        for (sx = sroom->lx; sx <= sroom->hx; sx++) {
+            for (sy = sroom->ly; sy <= sroom->hy; sy++) {
+                for (otmp = level.objects[sx][sy]; otmp; otmp = otmp->nexthere) {
                     otmp->no_charge = 0;
+                }
+            }
+        }
 
         /* Make sure bill is set only when the
            dead shk is the resident shk. */
@@ -206,9 +217,10 @@ shkgone(struct monst *mtmp)
 void
 set_residency(struct monst *shkp, boolean zero_out)
 {
-    if (on_level(&(ESHK(shkp)->shoplevel), &u.uz))
+    if (on_level(&(ESHK(shkp)->shoplevel), &u.uz)) {
         rooms[ESHK(shkp)->shoproom - ROOMOFFSET].resident =
             (zero_out) ? (struct monst *)0 : shkp;
+    }
 }
 
 void
@@ -227,14 +239,16 @@ restshk(struct monst *shkp, boolean ghostly)
     if (u.uz.dlevel) {
         struct eshk *eshkp = ESHK(shkp);
 
-        if (eshkp->bill_p != (struct bill_x *) -1000)
+        if (eshkp->bill_p != (struct bill_x *) -1000) {
             eshkp->bill_p = &eshkp->bill[0];
+        }
         /* shoplevel can change as dungeons move around */
         /* savebones guarantees that non-homed shk's will be gone */
         if (ghostly) {
             assign_level(&eshkp->shoplevel, &u.uz);
-            if (ANGRY(shkp) && strncmpi(eshkp->customer, plname, PL_NSIZ))
-                pacify_shk(shkp);
+            if (ANGRY(shkp) && strncmpi(eshkp->customer, plname, PL_NSIZ)) {
+                pacify_shk(shkp, TRUE);
+            }
         }
     }
 }
@@ -278,10 +292,12 @@ setpaid(struct monst *shkp)
     if (kickedobj) {
         clear_unpaid_obj(shkp, kickedobj);
     }
-    for (mtmp = fmon; mtmp; mtmp = mtmp->nmon)
+    for (mtmp = fmon; mtmp; mtmp = mtmp->nmon) {
         clear_unpaid(shkp, mtmp->minvent);
-    for (mtmp = migrating_mons; mtmp; mtmp = mtmp->nmon)
+    }
+    for (mtmp = migrating_mons; mtmp; mtmp = mtmp->nmon) {
         clear_unpaid(shkp, mtmp->minvent);
+    }
 
     while ((obj = billobjs) != 0) {
         obj_extract_self(obj);
@@ -306,7 +322,7 @@ addupbill(struct monst *shkp)
         total += bp->price * bp->bquan;
         bp++;
     }
-    return(total);
+    return total;
 }
 
 #ifdef KOPS
@@ -319,7 +335,9 @@ call_kops(struct monst *shkp, boolean nearshop)
 
     Strcpy(kopname, "Keystone Kops");
 
-    if (!shkp) return;
+    if (!shkp) {
+        return;
+    }
 
     if (!Deaf) {
         pline("An alarm sounds!");
@@ -348,26 +366,32 @@ call_kops(struct monst *shkp, boolean nearshop)
         return;
     }
 
-    if (nokops) return;
+    if (nokops) {
+        return;
+    }
 
     {
         coord mm;
 
-        if (nearshop)
+        if (nearshop) {
 #ifdef BLACKMARKET
-            if (!Is_blackmarket(&u.uz))
+            if (!Is_blackmarket(&u.uz)) {
 #endif /* BLACKMARKET */
-        {
-            /* Create swarm around you, if you merely "stepped out" */
-            if (flags.verbose)
-                pline_The("%s appear!", kopname);
-            mm.x = u.ux;
-            mm.y = u.uy;
-            makekops(&mm);
-            return;
+                /* Create swarm around you, if you merely "stepped out" */
+                if (flags.verbose) {
+                    pline_The("%s appear!", kopname);
+                }
+                mm.x = u.ux;
+                mm.y = u.uy;
+                makekops(&mm);
+                return;
+#ifdef BLACKMARKET
+            }
+#endif /* BLACKMARKET */
         }
-        if (flags.verbose)
+        if (flags.verbose) {
             pline_The("%s are after you!", kopname);
+        }
         /* Create swarm near down staircase (hinders return to level) */
 #ifdef BLACKMARKET
         if (Is_blackmarket(&u.uz)) {
@@ -404,7 +428,9 @@ blkmar_guards(struct monst *mtmp)
     boolean mesg_given = FALSE; /* Only give message if assistants peaceful */
     static boolean rlock = FALSE; /* Prevent recursive calls (via wakeup) */
 
-    if (rlock) return;
+    if (rlock) {
+        return;
+    }
     rlock = TRUE;
 
     /* allow black marketeer to leave his shop */
@@ -412,7 +438,9 @@ blkmar_guards(struct monst *mtmp)
 
     /* wake up assistants */
     for (mt = fmon; mt; mt = mt->nmon) {
-        if (DEADMONSTER(mt)) continue;
+        if (DEADMONSTER(mt)) {
+            continue;
+        }
         /* non-tame named monsters are presumably
          * black marketeer's assistants */
         else if (mt->mpeaceful &&
@@ -430,8 +458,9 @@ blkmar_guards(struct monst *mtmp)
             wakeup(mt, TRUE);
         }
         /* All for one and one for all */
-        else if (mt->isshk && mt->data == &mons[PM_BLACK_MARKETEER])
+        else if (mt->isshk && mt->data == &mons[PM_BLACK_MARKETEER]) {
             hot_pursuit(mt);
+        }
     }
     rlock = FALSE;
 }
@@ -445,36 +474,48 @@ bars_around_portal(boolean removebars)
     boolean sawit = FALSE;
     struct trap *trap = ftrap;
     while (trap) {
-        if (trap->ttyp == MAGIC_PORTAL) break;
+        if (trap->ttyp == MAGIC_PORTAL) {
+            break;
+        }
         trap = trap->ntrap;
     }
-    if (!trap) return;
-    if (trap->tx == u.ux && trap->ty == u.uy) return;
-    for (dx = -1; dx <= 1; dx++)
+    if (!trap) {
+        return;
+    }
+    if (trap->tx == u.ux && trap->ty == u.uy) {
+        return;
+    }
+    for (dx = -1; dx <= 1; dx++) {
         for (dy = -1; dy <= 1; dy++) {
-            if (!dx && !dy) continue;
+            if (!dx && !dy) {
+                continue;
+            }
             x = trap->tx + dx;
             y = trap->ty + dy;
             if (removebars) {
                 if (levl[x][y].typ == IRONBARS) {
                     dissolve_bars(x, y);
-                    if (cansee(x, y))
+                    if (cansee(x, y)) {
                         sawit = TRUE;
+                    }
                 }
             } else {
                 if (!IS_ROCK(levl[x][y].typ) && levl[x][y].typ != IRONBARS) {
                     levl[x][y].typ = IRONBARS;
                     newsym(x, y);
-                    if (cansee(x, y))
+                    if (cansee(x, y)) {
                         sawit = TRUE;
+                    }
                 }
             }
         }
+    }
     if (sawit) {
-        if (removebars)
+        if (removebars) {
             pline("The iron bars rise back into the ceiling.");
-        else
+        } else {
             pline("Iron bars drop from the ceiling around the magic portal!");
+        }
     }
 
 }
@@ -488,10 +529,11 @@ inside_shop(coordxy x, coordxy y)
     char rno;
 
     rno = levl[x][y].roomno;
-    if ((rno < ROOMOFFSET) || levl[x][y].edge || !IS_SHOP(rno-ROOMOFFSET))
-        return(NO_ROOM);
-    else
-        return(rno);
+    if ((rno < ROOMOFFSET) || levl[x][y].edge || !IS_SHOP(rno-ROOMOFFSET)) {
+        return NO_ROOM;
+    } else {
+        return rno;
+    }
 }
 
 void
@@ -512,36 +554,39 @@ u_left_shop(char *leavestring, boolean newlev)
         return;
 
     shkp = shop_keeper(*u.ushops0);
-    if (!shkp || !inhishop(shkp))
+    if (!shkp || !inhishop(shkp)) {
         return; /* shk died, teleported, changed levels... */
+    }
 
     eshkp = ESHK(shkp);
-    if (!eshkp->billct && !eshkp->debit) /* bill is settled */
+    if (!eshkp->billct && !eshkp->debit) { /* bill is settled */
         return;
+    }
 
     if (!*leavestring && !muteshk(shkp)) {
         /*
          * Player just stepped onto shop-boundary (known from above logic).
          * Try to intimidate him into paying his bill
          */
+        boolean not_upset = !eshkp->surcharge;
         if (!Deaf && !muteshk(shkp)) {
-            verbalize(NOTANGRY(shkp) ? "%s!  Please pay before leaving." :
-                                       "%s!  Don't you leave without paying!",
-                                       plname);
+            verbalize(not_upset ? "%s!  Please pay before leaving." :
+                      "%s!  Don't you leave without paying!",
+                      plname);
         } else {
             pline("%s %s that you need to pay before leaving%s",
                   Shknam(shkp),
-                  NOTANGRY(shkp) ? "points out" : "makes it clear",
-                  NOTANGRY(shkp) ? "." : "!");
+                  not_upset ? "points out" : "makes it clear",
+                  not_upset ? "." : "!");
         }
         return;
     }
 
     if (rob_shop(shkp)) {
 #ifdef BLACKMARKET
-        if (Is_blackmarket(&u.uz))
+        if (Is_blackmarket(&u.uz)) {
             blkmar_guards(shkp);
-        else
+        } else
 #endif
 
 #ifdef KOPS
@@ -560,19 +605,21 @@ remote_burglary(coordxy x, coordxy y)
     struct eshk *eshkp;
 
     shkp = shop_keeper(*in_rooms(x, y, SHOPBASE));
-    if (!shkp || !inhishop(shkp))
+    if (!shkp || !inhishop(shkp)) {
         return; /* shk died, teleported, changed levels... */
+    }
 
     eshkp = ESHK(shkp);
-    if (!eshkp->billct && !eshkp->debit) /* bill is settled */
+    if (!eshkp->billct && !eshkp->debit) { /* bill is settled */
         return;
+    }
 
     if (rob_shop(shkp)) {
 
 #ifdef BLACKMARKET
-        if (Is_blackmarket(&u.uz))
+        if (Is_blackmarket(&u.uz)) {
             blkmar_guards(shkp);
-        else
+        } else
 #endif
 
 #ifdef KOPS
@@ -604,7 +651,9 @@ rob_shop(struct monst *shkp)
         total -= eshkp->credit;
     }
     setpaid(shkp);
-    if (!total) return FALSE;
+    if (!total) {
+        return FALSE;
+    }
 
     /* by this point, we know an actual robbery has taken place */
     eshkp->robbed += total;
@@ -615,8 +664,9 @@ rob_shop(struct monst *shkp)
                         shtypes[eshkp->shoptype - SHOPBASE].name,
                         total);
 #endif
-    if (!Role_if(PM_ROGUE)) /* stealing is unlawful */
+    if (!Role_if(PM_ROGUE)) { /* stealing is unlawful */
         adjalign(-sgn(u.ualign.type));
+    }
 
     hot_pursuit(shkp);
     return TRUE;
@@ -663,8 +713,9 @@ u_entered_shop(char *enterstring)
     struct eshk *eshkp;
     static char empty_shops[5];
 
-    if (!*enterstring)
+    if (!*enterstring) {
         return;
+    }
 
     /* interrupt multi turn stuff */
     nomul(0, 0);
@@ -684,8 +735,9 @@ u_entered_shop(char *enterstring)
     if (!inhishop(shkp)) {
         /* dump core when referenced */
         eshkp->bill_p = (struct bill_x *) -1000;
-        if (!index(empty_shops, *enterstring))
+        if (!index(empty_shops, *enterstring)) {
             deserted_shop(enterstring);
+        }
         Strcpy(empty_shops, u.ushops);
         u.ushops[0] = '\0';
         return;
@@ -700,11 +752,12 @@ u_entered_shop(char *enterstring)
         eshkp->visitct = 0;
         eshkp->following = 0;
         (void) strncpy(eshkp->customer, plname, PL_NSIZ);
-        pacify_shk(shkp);
+        pacify_shk(shkp, TRUE);
     }
 
-    if (shkp->msleeping || !shkp->mcanmove || eshkp->following)
+    if (muteshk(shkp) || eshkp->following) {
         return; /* no dialog */
+    }
 
     if (Invis) {
         pline("%s senses your presence.", Shknam(shkp));
@@ -739,6 +792,14 @@ u_entered_shop(char *enterstring)
                   noit_mhis(shkp),
                   shtypes[rt - SHOPBASE].name);
         }
+    } else if (eshkp->surcharge) {
+        if (!Deaf && !muteshk(shkp)) {
+            verbalize("Back again, %s?  I've got my %s on you.",
+                      plname, mbodypart(shkp, EYE));
+        } else {
+            pline_The("atmosphere at %s %s seems unwelcoming.",
+                      s_suffix(shkname(shkp)), shtypes[rt - SHOPBASE].name);
+        }
     } else if (eshkp->robbed) {
         if (!Deaf) {
             pline("%s mutters imprecations against shoplifters.", Shknam(shkp));
@@ -763,7 +824,7 @@ u_entered_shop(char *enterstring)
     }
     /* can't do anything about blocking if teleported in */
     if (!inside_shop(u.ux, u.uy) && !(Is_blackmarket(&u.uz))) {
-        boolean should_block;
+        boolean should_block, not_upset = !eshkp->surcharge;
         int cnt, types=0;
         const char *tool;
         struct obj *pick = carrying(PICK_AXE),
@@ -777,24 +838,32 @@ u_entered_shop(char *enterstring)
                 types++;
                 /* hack: `pick' already points somewhere into inventory */
                 while ((pick = pick->nobj) != 0) {
-                    if (pick->otyp == PICK_AXE) ++cnt;
+                    if (pick->otyp == PICK_AXE) {
+                        ++cnt;
+                    }
                 }
             }
             if (crystal_pick) {
                 tool = "crystal pick";
                 types++;
                 while ((crystal_pick = crystal_pick->nobj) != 0) {
-                    if (crystal_pick->otyp == CRYSTAL_PICK) ++cnt;
+                    if (crystal_pick->otyp == CRYSTAL_PICK) {
+                        ++cnt;
+                    }
                 }
             }
             if (mattock) {
                 tool = "mattock";
                 types++;
                 while ((mattock = mattock->nobj) != 0) {
-                    if (mattock->otyp == DWARVISH_MATTOCK) ++cnt;
+                    if (mattock->otyp == DWARVISH_MATTOCK) {
+                        ++cnt;
+                    }
                 }
                 /* [ALI] Shopkeeper identifies mattock(s) */
-                if (!Blind && (types == 1)) makeknown(DWARVISH_MATTOCK);
+                if (!Blind && (types == 1)) {
+                    makeknown(DWARVISH_MATTOCK);
+                }
             }
             if (types > 1) {
                 /* carrying multiple types */
@@ -802,26 +871,26 @@ u_entered_shop(char *enterstring)
                 cnt = 2; /* `more than 1' is all that matters */
             }
             if (!Deaf && !muteshk(shkp)) {
-                verbalize(NOTANGRY(shkp) ?
+                verbalize(not_upset ?
                         "Will you please leave your %s%s outside?" :
                         "Leave the %s%s outside.",
                         tool, plur(cnt));
             } else {
                 pline("%s %s to let you in with your %s%s.",
                       Shknam(shkp),
-                      NOTANGRY(shkp) ? "is hesitant" : "refuses",
+                      not_upset ? "is hesitant" : "refuses",
                       tool, plur(cnt));
             }
             should_block = TRUE;
         } else if (u.usteed) {
             if (!Deaf && !muteshk(shkp)) {
-                verbalize(NOTANGRY(shkp) ?
+                verbalize(not_upset ?
                         "Will you please leave %s outside?" :
                         "Leave %s outside.", y_monnam(u.usteed));
             } else {
                 pline("%s %s to let you in while you're riding %s.",
                       Shknam(shkp),
-                      NOTANGRY(shkp) ? "doesn't want" : "refuses",
+                      not_upset ? "doesn't want" : "refuses",
                       y_monnam(u.usteed));
             }
             should_block = TRUE;
@@ -833,7 +902,9 @@ u_entered_shop(char *enterstring)
                                      sobj_at(DWARVISH_MATTOCK, u.ux, u.uy) ||
                                      sobj_at(CRYSTAL_PICK, u.ux, u.uy)));
         }
-        if (should_block) (void) dochug(shkp);  /* shk gets extra move */
+        if (should_block) {
+            (void) dochug(shkp); /* shk gets extra move */
+        }
     }
 }
 
@@ -879,19 +950,29 @@ same_price(struct obj *obj1, struct obj *obj2)
 
     /* look up the first object by finding shk whose bill it's on */
     for (shkp1 = next_shkp(fmon, TRUE); shkp1;
-         shkp1 = next_shkp(shkp1->nmon, TRUE))
-        if ((bp1 = onbill(obj1, shkp1, TRUE)) != 0) break;
+         shkp1 = next_shkp(shkp1->nmon, TRUE)) {
+        if ((bp1 = onbill(obj1, shkp1, TRUE)) != 0) {
+            break;
+        }
+    }
     /* second object is probably owned by same shk; if not, look harder */
     if (shkp1 && (bp2 = onbill(obj2, shkp1, TRUE)) != 0) {
         shkp2 = shkp1;
     } else {
         for (shkp2 = next_shkp(fmon, TRUE); shkp2;
-             shkp2 = next_shkp(shkp2->nmon, TRUE))
-            if ((bp2 = onbill(obj2, shkp2, TRUE)) != 0) break;
+             shkp2 = next_shkp(shkp2->nmon, TRUE)) {
+            if ((bp2 = onbill(obj2, shkp2, TRUE)) != 0) {
+                break;
+            }
+        }
     }
 
-    if (!bp1 || !bp2) warning("same_price: object wasn't on any bill!");
-    else are_mergable = (shkp1 == shkp2 && bp1->price == bp2->price);
+    if (!bp1 || !bp2) {
+        warning("same_price: object wasn't on any bill!");
+    } else {
+        are_mergable = (shkp1 == shkp2 && bp1->price == bp2->price);
+    }
+
     return are_mergable;
 }
 
@@ -908,8 +989,10 @@ shop_debt(struct eshk *eshkp)
     int ct;
     long debt = eshkp->debit;
 
-    for (bp = eshkp->bill_p, ct = eshkp->billct; ct > 0; bp++, ct--)
+    for (bp = eshkp->bill_p, ct = eshkp->billct; ct > 0; bp++, ct--) {
         debt += bp->price * bp->bquan;
+    }
+
     return debt;
 }
 
@@ -930,23 +1013,28 @@ shopper_financial_report(void)
 
     /* pass 0: report for the shop we're currently in, if any;
        pass 1: report for all other shops on this level. */
-    for (pass = this_shkp ? 0 : 1; pass <= 1; pass++)
+    for (pass = this_shkp ? 0 : 1; pass <= 1; pass++) {
         for (shkp = next_shkp(fmon, FALSE);
              shkp; shkp = next_shkp(shkp->nmon, FALSE)) {
-            if ((shkp != this_shkp) ^ pass) continue;
+            if ((shkp != this_shkp) ^ pass) {
+                continue;
+            }
             eshkp = ESHK(shkp);
-            if ((amt = eshkp->credit) != 0)
+            if ((amt = eshkp->credit) != 0) {
                 You("have %ld %s credit at %s %s.",
                     amt, currency(amt), s_suffix(shkname(shkp)),
                     shtypes[eshkp->shoptype - SHOPBASE].name);
-            else if (shkp == this_shkp)
+            } else if (shkp == this_shkp) {
                 You("have no credit in here.");
-            if ((amt = shop_debt(eshkp)) != 0)
+            }
+            if ((amt = shop_debt(eshkp)) != 0) {
                 You("owe %s %ld %s.",
                     shkname(shkp), amt, currency(amt));
-            else if (shkp == this_shkp)
-                You("don't owe any money here.");
+            } else if (shkp == this_shkp) {
+                You("don't owe any gold here.");
+            }
         }
+    }
 }
 
 int
@@ -966,10 +1054,10 @@ shop_keeper(char rmno)
 
     if (shkp) {
         if (has_eshk(shkp)) {
-            if (NOTANGRY(shkp)) {
-                if (ESHK(shkp)->surcharge) pacify_shk(shkp);
-            } else {
-                if (!ESHK(shkp)->surcharge) rile_shk(shkp);
+            if (ANGRY(shkp)) {
+                if (!ESHK(shkp)->surcharge) {
+                    rile_shk(shkp);
+                }
             }
         } else {
             /* would have segfaulted on ESHK dereference previously */
@@ -994,10 +1082,11 @@ tended_shop(struct mkroom *sroom)
 {
     struct monst *mtmp = sroom->resident;
 
-    if (!mtmp)
-        return(FALSE);
-    else
-        return((boolean)(inhishop(mtmp)));
+    if (!mtmp) {
+        return FALSE;
+    } else {
+        return (boolean)(inhishop(mtmp));
+    }
 }
 
 static struct bill_x *
@@ -1009,9 +1098,13 @@ onbill(struct obj *obj, struct monst *shkp, boolean silent)
 
         while (--ct >= 0)
             if (bp->bo_id == obj->o_id) {
-                if (!obj->unpaid) pline("onbill: paid obj on bill?");
+                if (!obj->unpaid) {
+                    pline("onbill: paid obj on bill?");
+                }
                 return bp;
-            } else bp++;
+            } else {
+                bp++;
+            }
     }
     if (obj->unpaid && !silent) {
         pline("onbill: unpaid obj not on bill?");
@@ -1048,10 +1141,18 @@ obfree(struct obj *obj, struct obj *merge)
     struct bill_x *bpm;
     struct monst *shkp;
 
-    if (obj->otyp == LEASH && obj->leashmon) o_unleash(obj);
-    if (obj->oclass == FOOD_CLASS) food_disappears(obj);
-    if (obj->oclass == SPBOOK_CLASS) book_disappears(obj);
-    if (Has_contents(obj)) delete_contents(obj);
+    if (obj->otyp == LEASH && obj->leashmon) {
+        o_unleash(obj);
+    }
+    if (obj->oclass == FOOD_CLASS) {
+        food_disappears(obj);
+    }
+    if (obj->oclass == SPBOOK_CLASS) {
+        book_disappears(obj);
+    }
+    if (Has_contents(obj)) {
+        delete_contents(obj);
+    }
     if (Is_container(obj)) {
         maybe_reset_pick(obj);
     }
@@ -1060,11 +1161,16 @@ obfree(struct obj *obj, struct obj *merge)
     if (obj->unpaid) {
         /* look for a shopkeeper who owns this object */
         for (shkp = next_shkp(fmon, TRUE); shkp;
-             shkp = next_shkp(shkp->nmon, TRUE))
-            if (onbill(obj, shkp, TRUE)) break;
+             shkp = next_shkp(shkp->nmon, TRUE)) {
+            if (onbill(obj, shkp, TRUE)) {
+                break;
+            }
+        }
     }
     /* sanity check, in case obj is on bill but not marked 'unpaid' */
-    if (!shkp) shkp = shop_keeper(*u.ushops);
+    if (!shkp) {
+        shkp = shop_keeper(*u.ushops);
+    }
     /*
      * Note:  `shkp = shop_keeper(*u.ushops)' used to be
      *    unconditional.  But obfree() is used all over
@@ -1117,9 +1223,15 @@ obfree(struct obj *obj, struct obj *merge)
     }
 
     /* fix for C343-218, C343-275 and C343-276 */
-    if (obj == uwep) uwepgone();
-    if (obj == uswapwep) uswapwepgone();
-    if (obj == uquiver) uqwepgone();
+    if (obj == uwep) {
+        uwepgone();
+    }
+    if (obj == uswapwep) {
+        uswapwepgone();
+    }
+    if (obj == uquiver) {
+        uqwepgone();
+    }
 
     if (obj->owornmask) {
         impossible("obfree: deleting worn obj (%d: %ld)", obj->otyp, obj->owornmask);
@@ -1148,7 +1260,7 @@ check_credit(long int tmp, struct monst *shkp)
         ESHK(shkp)->credit = 0L;
         tmp -= credit;
     }
-    return(tmp);
+    return tmp;
 }
 
 static void
@@ -1157,13 +1269,18 @@ pay(long int tmp, struct monst *shkp)
     long robbed = ESHK(shkp)->robbed;
     long balance = ((tmp <= 0L) ? tmp : check_credit(tmp, shkp));
 
-    if (balance > 0) money2mon(shkp, balance);
-    else if (balance < 0) money2u(shkp, -balance);
+    if (balance > 0) {
+        money2mon(shkp, balance);
+    } else if (balance < 0) {
+        money2u(shkp, -balance);
+    }
 
     flags.botl = 1;
     if (robbed) {
         robbed -= tmp;
-        if (robbed < 0) robbed = 0L;
+        if (robbed < 0) {
+            robbed = 0L;
+        }
         ESHK(shkp)->robbed = robbed;
     }
 }
@@ -1193,17 +1310,20 @@ angry_shk_exists(void)
     struct monst *shkp;
 
     for (shkp = next_shkp(fmon, FALSE);
-         shkp; shkp = next_shkp(shkp->nmon, FALSE))
-        if (ANGRY(shkp)) return(TRUE);
-    return(FALSE);
+         shkp; shkp = next_shkp(shkp->nmon, FALSE)) {
+        if (ANGRY(shkp)) {
+            return TRUE;
+        }
+    }
+    return FALSE;
 }
 
 /* remove previously applied surcharge from all billed items */
 static void
-pacify_shk(struct monst *shkp)
+pacify_shk(struct monst *shkp, boolean clear_surcharge)
 {
     NOTANGRY(shkp) = TRUE; /* make peaceful */
-    if (ESHK(shkp)->surcharge) {
+    if (clear_surcharge && ESHK(shkp)->surcharge) {
         struct bill_x *bp = ESHK(shkp)->bill_p;
         int ct = ESHK(shkp)->billct;
 
@@ -1238,11 +1358,12 @@ rile_shk(struct monst *shkp)
 static void
 rouse_shk(struct monst *shkp, boolean verbosely)
 {
-    if (!shkp->mcanmove || shkp->msleeping) {
+    if (helpless(shkp)) {
         /* greed induced recovery... */
-        if (verbosely && canspotmon(shkp))
+        if (verbosely && canspotmon(shkp)) {
             pline("%s %s.", Shknam(shkp),
                   shkp->msleeping ? "wakes up" : "can move again");
+        }
         shkp->msleeping = 0;
         shkp->mfrozen = 0;
         shkp->mcanmove = 1;
@@ -1255,11 +1376,12 @@ make_happy_shk(struct monst *shkp, boolean silentkops)
     boolean wasmad = ANGRY(shkp);
     struct eshk *eshkp = ESHK(shkp);
 
-    pacify_shk(shkp);
+    pacify_shk(shkp, FALSE);
     eshkp->following = 0;
     eshkp->robbed = 0L;
-    if (!Role_if(PM_ROGUE))
+    if (!Role_if(PM_ROGUE)) {
         adjalign(sgn(u.ualign.type));
+    }
     if (!inhishop(shkp)) {
         char shk_nam[BUFSZ];
         boolean vanished = canseemon(shkp);
@@ -1268,10 +1390,14 @@ make_happy_shk(struct monst *shkp, boolean silentkops)
         if (on_level(&eshkp->shoplevel, &u.uz)) {
             home_shk(shkp, FALSE);
             /* didn't disappear if shk can still be seen */
-            if (canseemon(shkp)) vanished = FALSE;
+            if (canseemon(shkp)) {
+                vanished = FALSE;
+            }
         } else {
             /* if sensed, does disappear regardless whether seen */
-            if (sensemon(shkp)) vanished = TRUE;
+            if (sensemon(shkp)) {
+                vanished = TRUE;
+            }
             /* can't act as porter for the Amulet, even if shk
                happens to be going farther down rather than up */
             mdrop_special_objs(shkp);
@@ -1281,10 +1407,12 @@ make_happy_shk(struct monst *shkp, boolean silentkops)
             /* dismiss kops on that level when shk arrives */
             eshkp->dismiss_kops = TRUE;
         }
-        if (vanished)
+        if (vanished) {
             pline("Satisfied, %s suddenly disappears!", shk_nam);
-    } else if (wasmad)
+        }
+    } else if (wasmad) {
         pline("%s calms down.", Shknam(shkp));
+    }
 
     make_happy_shoppers(silentkops);
 }
@@ -1302,7 +1430,9 @@ make_happy_shoppers(boolean silentkops)
 void
 hot_pursuit(struct monst *shkp)
 {
-    if (!shkp->isshk) return;
+    if (!shkp->isshk) {
+        return;
+    }
 
     rile_shk(shkp);
     (void) strncpy(ESHK(shkp)->customer, plname, PL_NSIZ);
@@ -1324,7 +1454,9 @@ make_angry_shk(struct monst *shkp, coordxy ox UNUSED, coordxy oy UNUSED)
     if (eshkp->billct || eshkp->debit || eshkp->loan || eshkp->credit) {
         eshkp->robbed += (addupbill(shkp) + eshkp->debit + eshkp->loan);
         eshkp->robbed -= eshkp->credit;
-        if (eshkp->robbed < 0L) eshkp->robbed = 0L;
+        if (eshkp->robbed < 0L) {
+            eshkp->robbed = 0L;
+        }
         /* billct, debit, loan, and credit will be cleared by setpaid */
         setpaid(shkp);
     }
@@ -1333,7 +1465,7 @@ make_angry_shk(struct monst *shkp, coordxy ox UNUSED, coordxy oy UNUSED)
     hot_pursuit(shkp);
 }
 
-static const char no_money[] = "Moreover, you%s have no money.";
+static const char no_money[] = "Moreover, you%s have no gold.";
 static const char not_enough_money[] =
     "Besides, you don't have enough to interest %s.";
 
@@ -1346,11 +1478,12 @@ cheapest_item(struct monst *shkp)
     long gmin = (bp->price * bp->bquan);
 
     while (ct--) {
-        if (bp->price * bp->bquan < gmin)
+        if (bp->price * bp->bquan < gmin) {
             gmin = bp->price * bp->bquan;
+        }
         bp++;
     }
-    return(gmin);
+    return gmin;
 }
 
 int
@@ -1372,10 +1505,15 @@ dopay(void)
     for (shkp = next_shkp(fmon, FALSE);
          shkp; shkp = next_shkp(shkp->nmon, FALSE)) {
         sk++;
-        if (ANGRY(shkp) && distu(shkp->mx, shkp->my) <= 2) nxtm = shkp;
-        if (canspotmon(shkp)) seensk++;
-        if (inhishop(shkp) && (*u.ushops == ESHK(shkp)->shoproom))
+        if (ANGRY(shkp) && distu(shkp->mx, shkp->my) <= 2) {
+            nxtm = shkp;
+        }
+        if (canspotmon(shkp)) {
+            seensk++;
+        }
+        if (inhishop(shkp) && (*u.ushops == ESHK(shkp)->shoproom)) {
             resident = shkp;
+        }
     }
 
     if (nxtm) {      /* Player should always appease an */
@@ -1385,12 +1523,12 @@ dopay(void)
 
     if ((!sk && (!Blind || Blind_telepat)) || (!Blind && !seensk)) {
         There("appears to be no shopkeeper here to receive your payment.");
-        return(0);
+        return 0;
     }
 
     if (!seensk) {
         You_cant("see...");
-        return(0);
+        return 0;
     }
 
     /* the usual case.  allow paying at a distance when */
@@ -1402,12 +1540,15 @@ dopay(void)
 
     if (seensk == 1) {
         for (shkp = next_shkp(fmon, FALSE);
-             shkp; shkp = next_shkp(shkp->nmon, FALSE))
-            if (canspotmon(shkp)) break;
+             shkp; shkp = next_shkp(shkp->nmon, FALSE)) {
+            if (canspotmon(shkp)) {
+                break;
+            }
+        }
         if (shkp != resident && distu(shkp->mx, shkp->my) > 2) {
             pline("%s is not near enough to receive your payment.",
                   Monnam(shkp));
-            return(0);
+            return 0;
         }
     } else {
         struct monst *mtmp;
@@ -1417,17 +1558,18 @@ dopay(void)
         pline("Pay whom?");
         cc.x = u.ux;
         cc.y = u.uy;
-        if (getpos(&cc, TRUE, "the creature you want to pay") < 0)
+        if (getpos(&cc, TRUE, "the creature you want to pay") < 0) {
             return 0; /* player pressed ESC */
+        }
         cx = cc.x;
         cy = cc.y;
         if (cx < 0) {
             pline("Try again...");
-            return(0);
+            return 0;
         }
         if (u.ux == cx && u.uy == cy) {
             You("are generous to yourself.");
-            return(0);
+            return 0;
         }
         mtmp = m_at(cx, cy);
         if (!cansee(cx, cy) && (!mtmp || !canspotmon(mtmp))) {
@@ -1436,17 +1578,17 @@ dopay(void)
         }
         if (!mtmp) {
             There("is no one there to receive your payment.");
-            return(0);
+            return 0;
         }
         if (!mtmp->isshk) {
             pline("%s is not interested in your payment.",
                   Monnam(mtmp));
-            return(0);
+            return 0;
         }
         if (mtmp != resident && distu(mtmp->mx, mtmp->my) > 2) {
             pline("%s is too far to receive your payment.",
                   Shknam(mtmp));
-            return(0);
+            return 0;
         }
         shkp = mtmp;
     }
@@ -1455,17 +1597,18 @@ dopay(void)
 #ifdef DEBUG
         pline("dopay: null shkp.");
 #endif
-        return(0);
+        return 0;
     }
 proceed:
     eshkp = ESHK(shkp);
     ltmp = eshkp->robbed;
 
     /* wake sleeping shk when someone who owes money offers payment */
-    if (ltmp || eshkp->billct || eshkp->debit)
+    if (ltmp || eshkp->billct || eshkp->debit) {
         rouse_shk(shkp, TRUE);
+    }
 
-    if (!shkp->mcanmove || shkp->msleeping) { /* still asleep/paralyzed */
+    if (helpless(shkp)) { /* still asleep/paralyzed */
         pline("%s %s.", Shknam(shkp),
               rn2(2) ? "seems to be napping" : "doesn't respond");
         return 0;
@@ -1473,12 +1616,13 @@ proceed:
 
     if (shkp != resident && NOTANGRY(shkp)) {
         umoney = money_cnt(invent);
-        if (!ltmp)
+        if (!ltmp) {
             You("do not owe %s anything.", shkname(shkp));
-        else if (!umoney) {
-            You("%shave no money.", stashed_gold ? "seem to " : "");
-            if (stashed_gold)
+        } else if (!umoney) {
+            You("%shave no gold.", stashed_gold ? "seem to " : "");
+            if (stashed_gold) {
                 pline("But you have some gold stashed away.");
+            }
         } else {
             if (umoney > ltmp) {
                 You("give %s the %ld gold piece%s %s asked for.",
@@ -1488,15 +1632,18 @@ proceed:
                 You("give %s all your%s gold.", shkname(shkp),
                     stashed_gold ? " openly kept" : "");
                 pay(umoney, shkp);
-                if (stashed_gold) pline("But you have hidden gold!");
+                if (stashed_gold) {
+                    pline("But you have hidden gold!");
+                }
             }
-            if ((umoney < ltmp/2L) || (umoney < ltmp && stashed_gold))
+            if ((umoney < ltmp/2L) || (umoney < ltmp && stashed_gold)) {
                 pline("Unfortunately, %s doesn't look satisfied.",
                       noit_mhe(shkp));
-            else
+            } else {
                 make_happy_shk(shkp, FALSE);
+            }
         }
-        return(1);
+        return 1;
     }
 
     /* ltmp is still eshkp->robbed here */
@@ -1504,10 +1651,11 @@ proceed:
         umoney = money_cnt(invent);
         if (!ltmp && NOTANGRY(shkp)) {
             You("do not owe %s anything.", shkname(shkp));
-            if (!umoney)
+            if (!umoney) {
                 pline(no_money, stashed_gold ? " seem to" : "");
+            }
         } else if (ltmp) {
-            pline("%s is after blood, not money!", shkname(shkp));
+            pline("%s is after blood, not gold!", shkname(shkp));
             if (umoney < ltmp/2L ||
                (umoney < ltmp && stashed_gold)) {
                 if (!umoney) {
@@ -1515,7 +1663,7 @@ proceed:
                 } else {
                     pline(not_enough_money, noit_mhim(shkp));
                 }
-                return(1);
+                return 1;
             }
             pline("But since %s shop has been robbed recently,",
                   noit_mhis(shkp));
@@ -1534,7 +1682,7 @@ proceed:
 #endif
             /* shopkeeper is angry, but has not been robbed --
              * door broken, attacked, etc. */
-            pline("%s is after your hide, not your money!",
+            pline("%s is after your hide, not your gold!",
                   Shknam(shkp));
             if (umoney < peace_offering) {
                 if (!umoney) {
@@ -1542,23 +1690,26 @@ proceed:
                 } else {
                     pline(not_enough_money, noit_mhim(shkp));
                 }
-                return(1);
+                return 1;
             }
             You("try to appease %s by giving %s %d gold pieces.",
                 canspotmon(shkp) ? x_monnam(shkp, ARTICLE_THE, "angry", 0, FALSE) : shkname(shkp),
                 noit_mhim(shkp), peace_offering);
             pay(peace_offering, shkp);
-            if (strncmp(eshkp->customer, plname, PL_NSIZ) || rn2(3))
+            if (strncmp(eshkp->customer, plname, PL_NSIZ) || rn2(3)) {
                 make_happy_shk(shkp, FALSE);
-            else
+            } else {
                 pline("But %s is as angry as ever.", shkname(shkp));
+            }
         }
-        return(1);
+        return 1;
     }
     if (shkp != resident) {
         warning("dopay: not to shopkeeper?");
-        if (resident) setpaid(resident);
-        return(0);
+        if (resident) {
+            setpaid(resident);
+        }
+        return 0;
     }
     /* pay debt, if any, first */
     if (eshkp->debit) {
@@ -1570,17 +1721,19 @@ proceed:
         Sprintf(sbuf, "You owe %s %ld %s ",
                 shkname(shkp), dtmp, currency(dtmp));
         if (loan) {
-            if (loan == dtmp)
+            if (loan == dtmp) {
                 Strcat(sbuf, "you picked up in the store.");
-            else Strcat(sbuf,
+            } else Strcat(sbuf,
                         "for gold picked up and the use of merchandise.");
-        } else Strcat(sbuf, "for the use of merchandise.");
+        } else {
+            Strcat(sbuf, "for the use of merchandise.");
+        }
         pline("%s", sbuf);
         if (umoney + eshkp->credit < dtmp) {
             pline("But you don't%s have enough gold%s.",
                   stashed_gold ? " seem to" : "",
                   eshkp->credit ? " or credit" : "");
-            return(1);
+            return 1;
         } else {
             if (eshkp->credit >= dtmp) {
                 eshkp->credit -= dtmp;
@@ -1614,17 +1767,18 @@ proceed:
 
         umoney = money_cnt(invent);
         if (!umoney && !eshkp->credit) {
-            You("%shave no money or credit%s.",
+            You("%shave no gold or credit%s.",
                 stashed_gold ? "seem to " : "",
                 paid ? " left" : "");
-            return(0);
+            return 0;
         }
         if ((umoney + eshkp->credit) < cheapest_item(shkp)) {
-            You("don't have enough money to buy%s the item%s you picked.",
+            You("don't have enough gold to buy%s the item%s you picked.",
                 eshkp->billct > 1 ? " any of" : "", plur(eshkp->billct));
-            if (stashed_gold)
+            if (stashed_gold) {
                 pline("Maybe you have some gold stashed away?");
-            return(0);
+            }
+            return 0;
         }
 
         /* this isn't quite right; it itemizes without asking if the
@@ -1644,7 +1798,9 @@ proceed:
                     /* if completely used up, object quantity is stale;
                        restoring it to its original value here avoids
                        making the partly-used-up code more complicated */
-                    if (bp->useup) otmp->quan = bp->bquan;
+                    if (bp->useup) {
+                        otmp->quan = bp->bquan;
+                    }
                 } else {
                     warning("Shopkeeper administration out of order.");
                     setpaid(shkp); /* be nice to the player */
@@ -1669,13 +1825,17 @@ proceed:
                             continue; /*break*/
                         case PAY_SOME:
                             paid = TRUE;
-                            if (itemize) bot();
+                            if (itemize) {
+                                bot();
+                            }
                             continue; /*break*/
                         case PAY_BUY:
                             paid = TRUE;
                             break;
                         }
-                        if (itemize) bot();
+                        if (itemize) {
+                            bot();
+                        }
                         *bp = eshkp->bill_p[--eshkp->billct];
                     } else {
                         tmp++;
@@ -1684,22 +1844,26 @@ proceed:
             }
         }
 thanks:
-        if (!itemize)
+        if (!itemize) {
             update_inventory(); /* Done in dopayobj() if itemize. */
+        }
     }
     if (!ANGRY(shkp) && paid) {
         if (!Deaf && !muteshk(shkp)) {
-            verbalize("Thank you for shopping in %s %s!",
+            verbalize("Thank you for shopping in %s %s%s",
                       s_suffix(shkname(shkp)),
-                      shtypes[eshkp->shoptype - SHOPBASE].name);
+                      shtypes[eshkp->shoptype - SHOPBASE].name,
+                      !eshkp->surcharge ? "!" : ".");
         } else {
-            pline("%s nods appreciatively at you for shopping in %s %s!",
+            pline("%s nods%s at you for shopping in %s %s%s",
                   Shknam(shkp),
+                  !eshkp->surcharge ? " appreciatively" : "",
                   noit_mhis(shkp),
-                  shtypes[eshkp->shoptype - SHOPBASE].name);
+                  shtypes[eshkp->shoptype - SHOPBASE].name,
+                  !eshkp->surcharge ? "!" : ".");
         }
     }
-    return(1);
+    return 1;
 }
 
 /* return 2 if used-up portion paid */
@@ -1727,7 +1891,7 @@ dopayobj(struct monst *shkp, struct bill_x *bp, struct obj **obj_p, int which, b
         return PAY_BUY;
     }
     if (itemize && umoney + ESHK(shkp)->credit == 0L) {
-        You("%shave no money or credit left.",
+        You("%shave no gold or credit left.",
             stashed_gold ? "seem to " : "");
         return PAY_BROKE;
     }
@@ -1737,8 +1901,9 @@ dopayobj(struct monst *shkp, struct bill_x *bp, struct obj **obj_p, int which, b
     if (consumed) {
         /* either completely used up (simple), or split needed */
         quan = bp->bquan;
-        if (quan > obj->quan) /* difference is amount used up */
+        if (quan > obj->quan) { /* difference is amount used up */
             quan -= obj->quan;
+        }
     } else {
         /* dealing with ordinary unpaid item */
         quan = obj->quan;
@@ -1810,8 +1975,9 @@ dopayobj(struct monst *shkp, struct bill_x *bp, struct obj **obj_p, int which, b
             dealloc_obj(obj);
             *obj_p = 0; /* destroy pointer to freed object */
         }
-    } else if (itemize)
+    } else if (itemize) {
         update_inventory(); /* Done just once in dopay() if !itemize. */
+    }
     iflags.suppress_price--;
     return buy;
 }
@@ -1835,13 +2001,17 @@ paybill(
     /* if we escaped from the dungeon, shopkeepers can't reach us;
        shops don't occur on level 1, but this could happen if hero
        level teleports out of the dungeon and manages not to die */
-    if (croaked < 0) return FALSE;
+    if (croaked < 0) {
+        return FALSE;
+    }
     /* [should probably also return false when dead hero has been
         petrified since shk shouldn't be able to grab inventory
         which has been shut inside a statue] */
 
     /* suppress message spam from lots of angry black marketeers */
-    if (Is_blackmarket(&u.uz)) return FALSE;
+    if (Is_blackmarket(&u.uz)) {
+        return FALSE;
+    }
 
     /* this is where inventory will end up if any shk takes it */
     repo.location.x = repo.location.y = 0;
@@ -1936,7 +2106,7 @@ inherits(struct monst *shkp, int numsk, int croaked, boolean silently)
             }
             pline("%s %slooks at your corpse%s and %s.",
                   Shknam(shkp),
-                  (!shkp->mcanmove || shkp->msleeping) ? "wakes up, " : "",
+                  helpless(shkp) ? "wakes up, " : "",
                   takes,
                   !inhishop(shkp) ? "disappears" : "sighs");
         }
@@ -1959,27 +2129,38 @@ inherits(struct monst *shkp, int numsk, int croaked, boolean silently)
     }
 
     if (eshkp->billct || eshkp->debit || eshkp->robbed) {
-        if (roomno == eshkp->shoproom && inhishop(shkp))
+        if (roomno == eshkp->shoproom && inhishop(shkp)) {
             loss = addupbill(shkp) + eshkp->debit;
-        if (loss < eshkp->robbed) loss = eshkp->robbed;
+        }
+        if (loss < eshkp->robbed) {
+            loss = eshkp->robbed;
+        }
         take = TRUE;
     }
 
     if (eshkp->following || ANGRY(shkp) || take) {
-        if (!invent) goto skip;
+        if (!invent) {
+            goto skip;
+        }
         umoney = money_cnt(invent);
 
         takes[0] = '\0';
-        if (!shkp->mcanmove || shkp->msleeping)
+        if (helpless(shkp)) {
             Strcat(takes, "wakes up and ");
-        if (distu(shkp->mx, shkp->my) > 2)
+        }
+        if (distu(shkp->mx, shkp->my) > 2) {
             Strcat(takes, "comes and ");
+        }
         Strcat(takes, "takes");
 
         if (loss > umoney || !loss || roomno == eshkp->shoproom) {
             eshkp->robbed -= umoney;
-            if (eshkp->robbed < 0L) eshkp->robbed = 0L;
-            if (umoney > 0) money2mon(shkp, umoney);
+            if (eshkp->robbed < 0L) {
+                eshkp->robbed = 0L;
+            }
+            if (umoney > 0) {
+                money2mon(shkp, umoney);
+            }
 
             flags.botl = 1;
             if (!silently) {
@@ -2000,20 +2181,21 @@ inherits(struct monst *shkp, int numsk, int croaked, boolean silently)
                       noit_mhim(shkp));
             }
             /* shopkeeper has now been paid in full */
-            pacify_shk(shkp);
+            pacify_shk(shkp, FALSE);
             eshkp->following = 0;
             eshkp->robbed = 0L;
         }
 skip:
         /* in case we create bones */
         rouse_shk(shkp, FALSE); /* wake up */
-        if (!inhishop(shkp))
+        if (!inhishop(shkp)) {
             home_shk(shkp, FALSE);
+        }
     }
 clear:
     shkp->minvis = save_minvis;
     setpaid(shkp);
-    return(taken);
+    return taken;
 }
 
 static void
@@ -2054,7 +2236,9 @@ finish_paybill(void)
     int oy = repo.location.y;
 
 #if 0       /* don't bother */
-    if (ox == 0 && oy == 0) impossible("finish_paybill: no location");
+    if (ox == 0 && oy == 0) {
+        impossible("finish_paybill: no location");
+    }
 #endif
     /* Fix for C343-270: If twoweaponing and the swap weapon gets cursed,
      * it slips to the ground and we get a warning message. */
@@ -2080,10 +2264,11 @@ bp_to_obj(struct bill_x *bp)
     struct obj *obj;
     unsigned int id = bp->bo_id;
 
-    if (bp->useup)
+    if (bp->useup) {
         obj = o_on(id, billobjs);
-    else
+    } else {
         obj = find_oid(id);
+    }
     return obj;
 }
 
@@ -2100,18 +2285,30 @@ find_oid(unsigned int id)
     int i;
 
     /* first check various obj lists directly */
-    if ((obj = o_on(id, invent)) != 0) return obj;
-    if ((obj = o_on(id, fobj)) != 0) return obj;
-    if ((obj = o_on(id, level.buriedobjlist)) != 0) return obj;
-    if ((obj = o_on(id, migrating_objs)) != 0) return obj;
+    if ((obj = o_on(id, invent)) != 0) {
+        return obj;
+    }
+    if ((obj = o_on(id, fobj)) != 0) {
+        return obj;
+    }
+    if ((obj = o_on(id, level.buriedobjlist)) != 0) {
+        return obj;
+    }
+    if ((obj = o_on(id, migrating_objs)) != 0) {
+        return obj;
+    }
 
     /* not found yet; check inventory for members of various monst lists */
     mmtmp[0] = fmon;
     mmtmp[1] = migrating_mons;
     mmtmp[2] = mydogs; /* for use during level changes */
-    for (i = 0; i < 3; i++)
-        for (mon = mmtmp[i]; mon; mon = mon->nmon)
-            if ((obj = o_on(id, mon->minvent)) != 0) return obj;
+    for (i = 0; i < 3; i++) {
+        for (mon = mmtmp[i]; mon; mon = mon->nmon) {
+            if ((obj = o_on(id, mon->minvent)) != 0) {
+                return obj;
+            }
+        }
+    }
 
     /* not found at all */
     return (struct obj *)0;
@@ -2144,10 +2341,18 @@ get_cost_of_shop_item(struct obj *obj)
         (obj->unpaid ||
          (obj->where==OBJ_FLOOR && !obj->no_charge && costly_spot(x, y)))) {
 
-        if (!(shkp = shop_keeper(*in_rooms(x, y, SHOPBASE)))) return 0;
-        if (!inhishop(shkp)) return 0;
-        if (!costly_spot(x, y)) return 0;
-        if (!*u.ushops) return 0;
+        if (!(shkp = shop_keeper(*in_rooms(x, y, SHOPBASE)))) {
+            return 0;
+        }
+        if (!inhishop(shkp)) {
+            return 0;
+        }
+        if (!costly_spot(x, y)) {
+            return 0;
+        }
+        if (!*u.ushops) {
+            return 0;
+        }
 
         if (obj->oclass != COIN_CLASS) {
             cost = (obj == uball || obj == uchain) ? 0L :
@@ -2167,7 +2372,9 @@ get_cost(
 {
     long tmp = getprice(obj, FALSE);
 
-    if (!tmp) tmp = 5L;
+    if (!tmp) {
+        tmp = 5L;
+    }
     /* shopkeeper may notice if the player isn't very knowledgeable -
        especially when gem prices are concerned */
     if (!obj->dknown || !objects[obj->otyp].oc_name_known) {
@@ -2179,7 +2386,7 @@ get_cost(
             boolean pseudorand = ((game_seed % obj->otyp) >= obj->otyp/2);
 
             /* all gems are priced high - real or not */
-            switch(obj->otyp - LAST_GEM) {
+            switch (obj->otyp - LAST_GEM) {
             case 1 : /* white */
                 i = pseudorand ? DIAMOND : OPAL;
                 break;
@@ -2212,8 +2419,9 @@ get_cost(
                 break;
             }
             tmp = (long) objects[i].oc_cost;
-        } else if (!(obj->o_id % 4)) /* arbitrarily impose surcharge */
+        } else if (!(obj->o_id % 4)) { /* arbitrarily impose surcharge */
             tmp += tmp / 3L;
+        }
     }
 
     if ((Role_if(PM_TOURIST) && u.ulevel < (MAXULEV/2)) || (uarmu && !uarm && !uarmc)) {
@@ -2223,16 +2431,28 @@ get_cost(
         tmp += tmp / 3L;
     }
 
-    if (ACURR(A_CHA) > 18) tmp /= 2L;
-    else if (ACURR(A_CHA) > 17) tmp -= tmp / 3L;
-    else if (ACURR(A_CHA) > 15) tmp -= tmp / 4L;
-    else if (ACURR(A_CHA) < 6) tmp *= 2L;
-    else if (ACURR(A_CHA) < 8) tmp += tmp / 2L;
-    else if (ACURR(A_CHA) < 11) tmp += tmp / 3L;
-    if (tmp <= 0L) tmp = 1L;
-    else if (obj->oartifact) tmp *= 4L;
+    if (ACURR(A_CHA) > 18) {
+        tmp /= 2L;
+    } else if (ACURR(A_CHA) > 17) {
+        tmp -= tmp / 3L;
+    } else if (ACURR(A_CHA) > 15) {
+        tmp -= tmp / 4L;
+    } else if (ACURR(A_CHA) < 6) {
+        tmp *= 2L;
+    } else if (ACURR(A_CHA) < 8) {
+        tmp += tmp / 2L;
+    } else if (ACURR(A_CHA) < 11) {
+        tmp += tmp / 3L;
+    }
+    if (tmp <= 0L) {
+        tmp = 1L;
+    } else if (obj->oartifact) {
+        tmp *= 4L;
+    }
     /* anger surcharge should match rile_shk's */
-    if (shkp && ESHK(shkp)->surcharge) tmp += (tmp + 2L) / 3L;
+    if (shkp && ESHK(shkp)->surcharge) {
+        tmp += (tmp + 2L) / 3L;
+    }
 
 #ifdef BLACKMARKET
     /* KMH, balance patch -- healthstone replaces rotting/health */
@@ -2277,7 +2497,9 @@ contained_cost(struct obj *obj, struct monst *shkp, long int price, boolean usel
 
     /* the price of contained objects */
     for (otmp = obj->cobj; otmp; otmp = otmp->nobj) {
-        if (otmp->oclass == COIN_CLASS) continue;
+        if (otmp->oclass == COIN_CLASS) {
+            continue;
+        }
 
         if (usell) {
             if (saleable(shkp, otmp) &&
@@ -2295,11 +2517,12 @@ contained_cost(struct obj *obj, struct monst *shkp, long int price, boolean usel
             }
         }
 
-        if (Has_contents(otmp))
+        if (Has_contents(otmp)) {
             price = contained_cost(otmp, shkp, price, usell, unpaid_only);
+        }
     }
 
-    return(price);
+    return price;
 }
 
 /* count amount of gold inside container 'obj' and any nested containers */
@@ -2310,13 +2533,15 @@ contained_gold(struct obj *obj)
     long value = 0L;
 
     /* accumulate contained gold */
-    for (otmp = obj->cobj; otmp; otmp = otmp->nobj)
-        if (otmp->oclass == COIN_CLASS)
+    for (otmp = obj->cobj; otmp; otmp = otmp->nobj) {
+        if (otmp->oclass == COIN_CLASS) {
             value += otmp->quan;
-        else if (Has_contents(otmp))
+        } else if (Has_contents(otmp)) {
             value += contained_gold(otmp);
+        }
+    }
 
-    return(value);
+    return value;
 }
 
 static void
@@ -2326,13 +2551,17 @@ dropped_container(struct obj *obj, struct monst *shkp, boolean sale)
 
     /* the "top" container is treated in the calling fn */
     for (otmp = obj->cobj; otmp; otmp = otmp->nobj) {
-        if (otmp->oclass == COIN_CLASS) continue;
+        if (otmp->oclass == COIN_CLASS) {
+            continue;
+        }
 
-        if (!otmp->unpaid && !(sale && saleable(shkp, otmp)))
+        if (!otmp->unpaid && !(sale && saleable(shkp, otmp))) {
             otmp->no_charge = 1;
+        }
 
-        if (Has_contents(otmp))
+        if (Has_contents(otmp)) {
             dropped_container(otmp, shkp, sale);
+        }
     }
 }
 
@@ -2343,13 +2572,17 @@ picked_container(struct obj *obj)
 
     /* the "top" container is treated in the calling fn */
     for (otmp = obj->cobj; otmp; otmp = otmp->nobj) {
-        if (otmp->oclass == COIN_CLASS) continue;
+        if (otmp->oclass == COIN_CLASS) {
+            continue;
+        }
 
-        if (otmp->no_charge)
+        if (otmp->no_charge) {
             otmp->no_charge = 0;
+        }
 
-        if (Has_contents(otmp))
+        if (Has_contents(otmp)) {
             picked_container(otmp);
+        }
     }
 }
 
@@ -2399,10 +2632,11 @@ set_cost(struct obj *obj, struct monst *shkp)
         || (uarmu && !uarm && !uarmc))  /* touristy shirt visible */
         tmp /= 3L;
     else
-    if (uarmh && uarmh->otyp == DUNCE_CAP)
+    if (uarmh && uarmh->otyp == DUNCE_CAP) {
         tmp /= 3L;
-    else
+    } else {
         tmp /= 2L;
+    }
 
     /* some shopkeepers just want to rip you off */
     if (tmp > 4L && ESHK(shkp)->cheapskate) {
@@ -2475,7 +2709,7 @@ alter_cost(struct obj *obj, long int amt)
     struct monst *shkp;
     long new_price;
 
-    for (shkp = next_shkp(fmon, TRUE); shkp; shkp = next_shkp(shkp, TRUE))
+    for (shkp = next_shkp(fmon, TRUE); shkp; shkp = next_shkp(shkp, TRUE)) {
         if ((bp = onbill(obj, shkp, TRUE)) != 0) {
             new_price = !amt ? get_cost(obj, shkp) : (amt < 0L) ? -amt : amt;
             if (new_price > bp->price || amt < 0L) {
@@ -2484,7 +2718,7 @@ alter_cost(struct obj *obj, long int amt)
             }
             break; /* done */
         }
-    return;
+    }
 }
 
 /* called from doinv(invent.c) for inventory of unpaid objects */
@@ -2567,10 +2801,12 @@ add_one_tobill(struct obj *obj, boolean dummy, struct monst *shkp)
 static void
 add_to_billobjs(struct obj *obj)
 {
-    if (obj->where != OBJ_FREE)
+    if (obj->where != OBJ_FREE) {
         panic("add_to_billobjs: obj not free (%d,%d,%d)", obj->where, obj->otyp, obj->invlet);
-    if (obj->timed)
+    }
+    if (obj->timed) {
         obj_stop_timers(obj);
+    }
 
     obj->nobj = billobjs;
     billobjs = obj;
@@ -2756,10 +2992,11 @@ addtobill(struct obj *obj, boolean ininv, boolean dummy, boolean silent)
         } else {
             long save_quan = obj->quan;
 
-            Strcpy(buf, "\"For you, ");
+            Strcpy(buf, "\"For you,");
             if (ANGRY(shkp)) {
-                Strcat(buf, "scum;");
-            } else {
+                Strcat(buf, " scum;");
+            } else if (!ESHK(shkp)->surcharge) {
+                Strcat(buf, " ");
                 append_honorific(buf);
                 Strcat(buf, "; only");
             }
@@ -2794,13 +3031,15 @@ append_honorific(char *buf)
         "most renowned and sacred"
     };
     Strcat(buf, honored[rn2(SIZE(honored)-1) + u.uevent.udemigod]);
-    if (is_vampire(youmonst.data)) Strcat(buf,
-                                          (flags.female) ? " dark lady" : " dark lord");
-    else if (is_elf(youmonst.data)) Strcat(buf,
-                                           (flags.female) ? " hiril" : " hir");
-    else if (!is_human(youmonst.data)) Strcat(buf, " creature");
-    else
+    if (is_vampire(youmonst.data)) {
+        Strcat(buf, (flags.female) ? " dark lady" : " dark lord");
+    } else if (is_elf(youmonst.data)) {
+        Strcat(buf, (flags.female) ? " hiril" : " hir");
+    } else if (!is_human(youmonst.data)) {
+        Strcat(buf, " creature");
+    } else {
         Strcat(buf, (flags.female) ? " lady" : " sir");
+    }
 }
 
 void
@@ -2828,8 +3067,9 @@ splitbill(struct obj *obj, struct obj *otmp)
     }
     bp->bquan -= otmp->quan;
 
-    if (ESHK(shkp)->billct == BILLSZ) otmp->unpaid = 0;
-    else {
+    if (ESHK(shkp)->billct == BILLSZ) {
+        otmp->unpaid = 0;
+    } else {
         tmp = bp->price;
         bp = &(ESHK(shkp)->bill_p[ESHK(shkp)->billct]);
         bp->bo_id = otmp->o_id;
@@ -2887,15 +3127,19 @@ subfrombill(struct obj *obj, struct monst *shkp)
 
     sub_one_frombill(obj, shkp);
 
-    if (Has_contents(obj))
+    if (Has_contents(obj)) {
         for (otmp = obj->cobj; otmp; otmp = otmp->nobj) {
-            if (otmp->oclass == COIN_CLASS) continue;
+            if (otmp->oclass == COIN_CLASS) {
+                continue;
+            }
 
-            if (Has_contents(otmp))
+            if (Has_contents(otmp)) {
                 subfrombill(otmp, shkp);
-            else
+            } else {
                 sub_one_frombill(otmp, shkp);
+            }
         }
+    }
 }
 
 static long
@@ -3083,7 +3327,9 @@ sellobj(struct obj *obj, coordxy x, coordxy y)
     }
     if (!(shkp = shop_keeper(*in_rooms(x, y, SHOPBASE))) ||
        !inhishop(shkp)) return;
-    if (!costly_spot(x, y)) return;
+    if (!costly_spot(x, y)) {
+        return;
+    }
 
     if (obj->unpaid && !container && !isgold) {
         sub_one_frombill(obj, shkp);
@@ -3098,8 +3344,9 @@ sellobj(struct obj *obj, coordxy x, coordxy y)
     }
 
     saleitem = saleable(shkp, obj);
-    if (!isgold && !obj->unpaid && saleitem)
+    if (!isgold && !obj->unpaid && saleitem) {
         ltmp = set_cost(obj, shkp);
+    }
 
     offer = ltmp + cltmp;
 
@@ -3116,7 +3363,9 @@ sellobj(struct obj *obj, coordxy x, coordxy y)
             if (unpaid) {
                 subfrombill(obj, shkp);
             }
-        } else obj->no_charge = 1;
+        } else {
+            obj->no_charge = 1;
+        }
 
         if (!unpaid && (sell_how != SELL_DONTSELL) && !special_stock(obj, shkp, FALSE)) {
             pline("%s seems uninterested.", Monnam(shkp));
@@ -3139,10 +3388,14 @@ sellobj(struct obj *obj, coordxy x, coordxy y)
     }
 
     if (eshkp->robbed) {  /* shkp is not angry? */
-        if (isgold) offer = obj->quan;
-        else if (cgold) offer += cgold;
-        if ((eshkp->robbed -= offer < 0L))
+        if (isgold) {
+            offer = obj->quan;
+        } else if (cgold) {
+            offer += cgold;
+        }
+        if ((eshkp->robbed -= offer < 0L)) {
             eshkp->robbed = 0L;
+        }
         if (offer && !Deaf && !muteshk(shkp)) {
             verbalize("Thank you for your contribution to restock this recently plundered shop.");
         }
@@ -3151,13 +3404,17 @@ sellobj(struct obj *obj, coordxy x, coordxy y)
     }
 
     if (isgold || cgold) {
-        if (!cgold) gltmp = obj->quan;
+        if (!cgold) {
+            gltmp = obj->quan;
+        }
 
         if (eshkp->debit >= gltmp) {
             if (eshkp->loan) { /* you carry shop's gold */
-                if (eshkp->loan >= gltmp)
+                if (eshkp->loan >= gltmp) {
                     eshkp->loan -= gltmp;
-                else eshkp->loan = 0L;
+                } else {
+                    eshkp->loan = 0L;
+                }
             }
             eshkp->debit -= gltmp;
             Your("debt is %spaid off.",
@@ -3181,9 +3438,12 @@ sellobj(struct obj *obj, coordxy x, coordxy y)
         }
         if (!offer || sell_how == SELL_DONTSELL) {
             if (!isgold) {
-                if (container)
+                if (container) {
                     dropped_container(obj, shkp, FALSE);
-                if (!obj->unpaid) obj->no_charge = 1;
+                }
+                if (!obj->unpaid) {
+                    obj->no_charge = 1;
+                }
                 subfrombill(obj, shkp);
             }
             return;
@@ -3198,8 +3458,9 @@ sellobj(struct obj *obj, coordxy x, coordxy y)
        || (Is_candle(obj) &&
            obj->age < 20L * (long)objects[obj->otyp].oc_cost)) {
         pline("%s seems uninterested%s.", Shknam(shkp), cgold ? " in the rest" : "");
-        if (container)
+        if (container) {
             dropped_container(obj, shkp, FALSE);
+        }
         obj->no_charge = 1;
         return;
     }
@@ -3239,10 +3500,15 @@ sellobj(struct obj *obj, coordxy x, coordxy y)
             eshkp->credit += tmpcr;
             subfrombill(obj, shkp);
         } else {
-            if (c == 'q') sell_response = 'n';
-            if (container)
+            if (c == 'q') {
+                sell_response = 'n';
+            }
+            if (container) {
                 dropped_container(obj, shkp, FALSE);
-            if (!obj->unpaid) obj->no_charge = 1;
+            }
+            if (!obj->unpaid) {
+                obj->no_charge = 1;
+            }
             subfrombill(obj, shkp);
         }
     } else {
@@ -3309,21 +3575,29 @@ sellobj(struct obj *obj, coordxy x, coordxy y)
                         ((yourc == 1L) ? " and item inside" : " and items inside") : and_its_contents) : "",
                     one ? "it" : "them");
             (void) safe_qbuf(qbuf, qbuf, qsfx, obj, xname, simpleonames, one ? "that" : "those");
-        } else qbuf[0] = '\0';      /* just to pacify lint */
+        } else {
+            qbuf[0] = '\0'; /* just to pacify lint */
+        }
 
         switch (sell_response ? sell_response : nyaq(qbuf)) {
         case 'q':  sell_response = 'n';
             /* fall through */
-        case 'n':  if (container)
+        case 'n':  if (container) {
                 dropped_container(obj, shkp, FALSE);
-            if (!obj->unpaid) obj->no_charge = 1;
+        }
+            if (!obj->unpaid) {
+                obj->no_charge = 1;
+            }
             subfrombill(obj, shkp);
             break;
         case 'a':  sell_response = 'y';
             /* fall through */
-        case 'y':  if (container)
+        case 'y':  if (container) {
                 dropped_container(obj, shkp, TRUE);
-            if (!obj->unpaid && !saleitem) obj->no_charge = 1;
+        }
+            if (!obj->unpaid && !saleitem) {
+                obj->no_charge = 1;
+            }
             subfrombill(obj, shkp);
             pay(-offer, shkp);
             shk_names_obj(shkp, obj, (sell_how != SELL_NORMAL) ?
@@ -3355,7 +3629,9 @@ doinvbill(int mode)
 
     shkp = shop_keeper(*u.ushops);
     if (!shkp || !inhishop(shkp)) {
-        if (mode != 0) warning("doinvbill: no shopkeeper?");
+        if (mode != 0) {
+            warning("doinvbill: no shopkeeper?");
+        }
         return 0;
     }
     eshkp = ESHK(shkp);
@@ -3366,10 +3642,12 @@ doinvbill(int mode)
         int cnt = !eshkp->debit ? 0 : 1;
 
         for (bp = eshkp->bill_p, end_bp = &eshkp->bill_p[eshkp->billct];
-             bp < end_bp; bp++)
+             bp < end_bp; bp++) {
             if (bp->useup ||
-                ((obj = bp_to_obj(bp)) != 0 && obj->quan < bp->bquan))
+                ((obj = bp_to_obj(bp)) != 0 && obj->quan < bp->bquan)) {
                 cnt++;
+            }
+        }
         return cnt;
     }
 
@@ -3401,7 +3679,9 @@ doinvbill(int mode)
     }
     if (eshkp->debit) {
         /* additional shop debt which has no itemization available */
-        if (totused) putstr(datawin, 0, "");
+        if (totused) {
+            putstr(datawin, 0, "");
+        }
         totused += eshkp->debit;
         buf_p = xprname((struct obj *)0,
                         "usage charges and/or other fees",
@@ -3414,7 +3694,7 @@ doinvbill(int mode)
     display_nhwindow(datawin, FALSE);
 quit:
     destroy_nhwindow(datawin);
-    return(0);
+    return 0;
 }
 
 static long
@@ -3424,29 +3704,41 @@ getprice(struct obj *obj, boolean shk_buying)
 
     if (obj->oartifact) {
         tmp = arti_cost(obj);
-        if (shk_buying) tmp /= 4;
+        if (shk_buying) {
+            tmp /= 4;
+        }
     }
-    switch(obj->oclass) {
+    switch (obj->oclass) {
     case FOOD_CLASS:
         /* simpler hunger check, (2-4)*cost */
-        if (u.uhs >= HUNGRY && !shk_buying) tmp *= (long) u.uhs;
-        if (obj->oeaten) tmp = 0L;
+        if (u.uhs >= HUNGRY && !shk_buying) {
+            tmp *= (long) u.uhs;
+        }
+        if (obj->oeaten) {
+            tmp = 0L;
+        }
         break;
     case WAND_CLASS:
-        if (obj->spe == -1) tmp = 0L;
+        if (obj->spe == -1) {
+            tmp = 0L;
+        }
         break;
     case POTION_CLASS:
-        if (obj->otyp == POT_WATER && !obj->blessed && !obj->cursed)
+        if (obj->otyp == POT_WATER && !obj->blessed && !obj->cursed) {
             tmp = 0L;
+        }
         break;
     case ARMOR_CLASS:
     case WEAPON_CLASS:
-        if (obj->spe > 0) tmp += 10L * (long) obj->spe;
+        if (obj->spe > 0) {
+            tmp += 10L * (long) obj->spe;
+        }
         break;
     case TOOL_CLASS:
         if (Is_candle(obj) &&
-            obj->age < 20L * (long)objects[obj->otyp].oc_cost)
+            obj->age < 20L * (long)objects[obj->otyp].oc_cost) {
             tmp /= 2L;
+        }
         break;
     }
     return tmp;
@@ -3459,9 +3751,9 @@ shkcatch(struct obj *obj, coordxy x, coordxy y)
     struct monst *shkp;
 
     if (!(shkp = shop_keeper(inside_shop(x, y))) ||
-        !inhishop(shkp)) return(0);
+        !inhishop(shkp)) return 0;
 
-    if (shkp->mcanmove && !shkp->msleeping &&
+    if (!helpless(shkp) &&
         (*u.ushops != ESHK(shkp)->shoproom || !inside_shop(u.ux, u.uy)) &&
         dist2(shkp->mx, shkp->my, x, y) < 3 &&
         /* if it is the shk's pos, you hit and anger him */
@@ -3474,8 +3766,9 @@ shkcatch(struct obj *obj, coordxy x, coordxy y)
                   Shknam(shkp),
                   (x == shkp->mx && y == shkp->my) ? "" : " reaches over and",
                   the(xname(obj)));
-            if (!canspotmon(shkp))
+            if (!canspotmon(shkp)) {
                 map_invisible(x, y);
+            }
             delay_output();
             mark_synch();
         }
@@ -3496,18 +3789,22 @@ add_damage(coordxy x, coordxy y, long int cost)
         struct monst *mtmp;
 
         /* Don't schedule for repair unless it's a real shop entrance */
-        for (shops = in_rooms(x, y, SHOPBASE); *shops; shops++)
+        for (shops = in_rooms(x, y, SHOPBASE); *shops; shops++) {
             if ((mtmp = shop_keeper(*shops)) != 0 &&
                 x == ESHK(mtmp)->shd.x && y == ESHK(mtmp)->shd.y)
                 break;
-        if (!*shops) return;
+        }
+        if (!*shops) {
+            return;
+        }
     }
-    for (tmp_dam = level.damagelist; tmp_dam; tmp_dam = tmp_dam->next)
+    for (tmp_dam = level.damagelist; tmp_dam; tmp_dam = tmp_dam->next) {
         if (tmp_dam->place.x == x && tmp_dam->place.y == y) {
             tmp_dam->cost += cost;
             tmp_dam->when = monstermoves; /* needed by pay_for_damage() */
             return;
         }
+    }
     tmp_dam = (struct damage *)alloc(sizeof *tmp_dam);
     (void) memset(tmp_dam, 0, sizeof *tmp_dam);
     tmp_dam->when = monstermoves;
@@ -3518,8 +3815,9 @@ add_damage(coordxy x, coordxy y, long int cost)
     tmp_dam->next = level.damagelist;
     level.damagelist = tmp_dam;
     /* If player saw damage, display as a wall forever */
-    if (cansee(x, y))
+    if (cansee(x, y)) {
         levl[x][y].seenv = SVALL;
+    }
 }
 
 /*
@@ -3555,17 +3853,19 @@ remove_damage(struct monst *shkp, boolean croaked)
             if (IS_DOOR(levl[x][y].typ)) {
                 old_doormask = levl[x][y].doormask;
             }
-            if (croaked)
+            if (croaked) {
                 disposition = (shops[1]) ? 0 : 1;
-            else if (stop_picking)
+            } else if (stop_picking) {
                 disposition = repair_damage(shkp, tmp_dam, FALSE);
-            else {
+            } else {
                 /* Defer the stop_occupation() until after repair msgs */
-                if (closed_door(x, y))
+                if (closed_door(x, y)) {
                     stop_picking = picking_at(x, y);
+                }
                 disposition = repair_damage(shkp, tmp_dam, FALSE);
-                if (!disposition)
+                if (!disposition) {
                     stop_picking = FALSE;
+                }
             }
         }
 
@@ -3604,8 +3904,9 @@ remove_damage(struct monst *shkp, boolean croaked)
             tmp2_dam->next = tmp_dam;
         }
     }
-    if (!did_repair)
+    if (!did_repair) {
         return;
+    }
 
     if (saw_untrap) {
         Sprintf(trapmsg, "%s trap%s",
@@ -3621,10 +3922,12 @@ remove_damage(struct monst *shkp, boolean croaked)
               (saw_walls == 1) ? "a" : (saw_walls <= 3) ?
               "some" : "several",
               (saw_walls == 1) ? "" : "s", (saw_walls == 1) ? "s" : "");
-        if (saw_door)
+        if (saw_door) {
             pline_The("shop door reappears!");
-        if (saw_floor)
+        }
+        if (saw_floor) {
             pline_The("floor is repaired!");
+        }
         if (saw_untrap) {
             pline("%s!", upstart(trapmsg));
         }
@@ -3642,8 +3945,9 @@ remove_damage(struct monst *shkp, boolean croaked)
             Norep("The dungeon acoustics noticeably change.");
         }
     }
-    if (stop_picking)
+    if (stop_picking) {
         stop_occupation();
+    }
 }
 
 /*
@@ -3663,10 +3967,12 @@ repair_damage(
     struct trap *ttmp;
     int i, k, ix, iy, disposition = 1;
 
-    if ((monstermoves - tmp_dam->when) < REPAIR_DELAY)
-        return(0);
-    if (shkp->msleeping || !shkp->mcanmove || ESHK(shkp)->following)
-        return(0);
+    if ((monstermoves - tmp_dam->when) < REPAIR_DELAY) {
+        return 0;
+    }
+    if (helpless(shkp) || ESHK(shkp)->following) {
+        return 0;
+    }
     x = tmp_dam->place.x;
     y = tmp_dam->place.y;
     if (!IS_ROOM(tmp_dam->typ)) {
@@ -3789,7 +4095,9 @@ repair_damage(
                 litter[i] |= NEED_UPDATE;
             }
     }
-    if (catchup) return 1;  /* repair occurred while off level */
+    if (catchup) {
+        return 1; /* repair occurred while off level */
+    }
 
     block_point(x, y);
     if (cansee(x, y)) {
@@ -3831,8 +4139,9 @@ shk_move(struct monst *shkp)
     omx = shkp->mx;
     omy = shkp->my;
 
-    if (inhishop(shkp))
+    if (inhishop(shkp)) {
         remove_damage(shkp, FALSE);
+    }
 
     if ((udist = distu(omx, omy)) < 3 &&
        (shkp->data != &mons[PM_GRID_BUG] || (omx==u.ux || omy==u.uy))) {
@@ -3842,7 +4151,7 @@ shk_move(struct monst *shkp)
                 Your("displaced image doesn't fool %s!", shkname(shkp));
             }
             (void) mattacku(shkp);
-            return(0);
+            return 0;
         }
         if (eshkp->following) {
             if (strncmp(eshkp->customer, plname, PL_NSIZ)) {
@@ -3851,7 +4160,7 @@ shk_move(struct monst *shkp)
                             Hello(shkp), plname, eshkp->customer);
                 }
                 eshkp->following = 0;
-                return(0);
+                return 0;
             }
             if (moves > followmsg+4) {
                 if (!Deaf && !muteshk(shkp)) {
@@ -3867,8 +4176,9 @@ shk_move(struct monst *shkp)
                     rile_shk(shkp);
                 }
             }
-            if (udist < 2)
-                return(0);
+            if (udist < 2) {
+                return 0;
+            }
         }
     }
 
@@ -3885,7 +4195,7 @@ shk_move(struct monst *shkp)
             invent, triggering billing impossibilities on the
             next level once the character fell through the hole.] */
         if (udist > 4 && eshkp->following && !eshkp->billct) {
-            return(-1); /* leave it to m_move */
+            return -1; /* leave it to m_move */
         }
         gx = u.ux;
         gy = u.uy;
@@ -3912,8 +4222,9 @@ shk_move(struct monst *shkp)
                            (Fast && (sobj_at(PICK_AXE, u.ux, u.uy) ||
                                      sobj_at(DWARVISH_MATTOCK, u.ux, u.uy) ||
                                      sobj_at(CRYSTAL_PICK, u.ux, u.uy)))));
-                if (satdoor && badinv)
-                    return(0);
+                if (satdoor && badinv) {
+                    return 0;
+                }
                 avoid = !badinv;
             } else {
                 avoid = (*u.ushops && distu(gx, gy) > 8);
@@ -3922,16 +4233,20 @@ shk_move(struct monst *shkp)
 
             if (((!eshkp->robbed && !eshkp->billct && !eshkp->debit)
                 || avoid) && GDIST(omx, omy) < 3) {
-                if (!badinv && !onlineu(omx, omy))
-                    return(0);
-                if (satdoor)
+                if (!badinv && !onlineu(omx, omy)) {
+                    return 0;
+                }
+                if (satdoor) {
                     appr = gx = gy = 0;
+                }
             }
         }
     }
 
     z = move_special(shkp, inhishop(shkp), appr, uondoor, avoid, omx, omy, gx, gy);
-    if (z > 0) after_shk_move(shkp);
+    if (z > 0) {
+        after_shk_move(shkp);
+    }
 
     return z;
 }
@@ -3953,7 +4268,7 @@ after_shk_move(struct monst *shkp)
 boolean
 is_fshk(struct monst *mtmp)
 {
-    return((boolean)(mtmp->isshk && ESHK(mtmp)->following));
+    return (boolean)(mtmp->isshk && ESHK(mtmp)->following);
 }
 
 /* You are digging in the shop. */
@@ -3964,16 +4279,19 @@ shopdig(int fall)
     int lang;
     const char *grabs = "grabs";
 
-    if (!shkp) return;
+    if (!shkp) {
+        return;
+    }
 
     /* 0 == can't speak, 1 == makes animal noises, 2 == speaks */
     lang = 0;
-    if (shkp->msleeping || !shkp->mcanmove || is_silent(shkp->data))
+    if (helpless(shkp) || is_silent(shkp->data)) {
         ; /* lang stays 0 */
-    else if (shkp->data->msound <= MS_ANIMAL)
+    } else if (shkp->data->msound <= MS_ANIMAL) {
         lang = 1;
-    else if (shkp->data->msound >= MS_HUMANOID)
+    } else if (shkp->data->msound >= MS_HUMANOID) {
         lang = 2;
+    }
 
     if (!inhishop(shkp)) {
         if (Role_if(PM_KNIGHT) && u.ualign.type == A_LAWFUL) {
@@ -3987,13 +4305,14 @@ shopdig(int fall)
     if (!fall) {
         if (lang == 2) {
             if (!Deaf && !muteshk(shkp)) {
-                if (u.utraptype == TT_PIT)
+                if (u.utraptype == TT_PIT) {
                     verbalize(
                         "Be careful, %s, or you might fall through the floor.",
                         flags.female ? "madam" : "sir");
-                else
+                } else {
                     verbalize("%s, do not damage the floor here!",
                               flags.female ? "Madam" : "Sir");
+                }
             }
         }
         if (Role_if(PM_KNIGHT)) {
@@ -4001,8 +4320,8 @@ shopdig(int fall)
             adjalign(-sgn(u.ualign.type));
         }
     } else if (!um_dist(shkp->mx, shkp->my, 5) &&
-              !shkp->msleeping && shkp->mcanmove &&
-              (ESHK(shkp)->billct || ESHK(shkp)->debit)) {
+               !helpless(shkp) &&
+               (ESHK(shkp)->billct || ESHK(shkp)->debit)) {
         struct obj *obj, *obj2;
 
         if (nolimbs(shkp->data)) {
@@ -4011,9 +4330,10 @@ shopdig(int fall)
             /* This is what should happen, but for balance
              * reasons, it isn't currently.
              */
-            if (lang == 2)
+            if (lang == 2) {
                 pline("%s curses %s inability to grab your backpack!",
                       Shknam(shkp), noit_mhim(shkp));
+            }
             rile_shk(shkp);
             return;
 #endif
@@ -4044,7 +4364,9 @@ shopdig(int fall)
             if ((obj->owornmask & ~(W_SWAPWEP|W_QUIVER)) != 0 ||
                 (obj == uswapwep && u.twoweap) ||
                 (obj->otyp == LEASH && obj->leashmon)) continue;
-            if (obj == current_wand) continue;
+            if (obj == current_wand) {
+                continue;
+            }
             setnotworn(obj);
             freeinv(obj);
             subfrombill(obj, shkp);
@@ -4132,8 +4454,9 @@ pay_for_damage(const char *dmgstr, boolean cant_mollify)
             struct monst *tmp_shk;
             unsigned int shk_distance;
 
-            if (!(tmp_shk = shop_keeper(*shp)))
+            if (!(tmp_shk = shop_keeper(*shp))) {
                 continue;
+            }
             if (tmp_shk == shkp) {
                 unsigned int damage_distance =
                     distu(tmp_dam->place.x, tmp_dam->place.y);
@@ -4144,16 +4467,20 @@ pay_for_damage(const char *dmgstr, boolean cant_mollify)
                 }
                 continue;
             }
-            if (!inhishop(tmp_shk))
+            if (!inhishop(tmp_shk)) {
                 continue;
+            }
             shk_distance = distu(tmp_shk->mx, tmp_shk->my);
-            if (shk_distance > nearest_shk)
+            if (shk_distance > nearest_shk) {
                 continue;
+            }
             if ((shk_distance == nearest_shk) && picks) {
-                if (rn2(++picks))
+                if (rn2(++picks)) {
                     continue;
-            } else
+                }
+            } else {
                 picks = 1;
+            }
             shkp = tmp_shk;
             nearest_shk = shk_distance;
             appear_here = tmp_dam;
@@ -4161,8 +4488,9 @@ pay_for_damage(const char *dmgstr, boolean cant_mollify)
         }
     }
 
-    if (!cost_of_damage || !shkp)
+    if (!cost_of_damage || !shkp) {
         return;
+    }
 
     animal = (shkp->data->msound <= MS_ANIMAL);
     pursue = FALSE;
@@ -4180,8 +4508,9 @@ pay_for_damage(const char *dmgstr, boolean cant_mollify)
 
     /* if the shk is not in their shop.. */
     if (!*in_rooms(shkp->mx, shkp->my, SHOPBASE)) {
-        if (!cansee(shkp->mx, shkp->my))
+        if (!cansee(shkp->mx, shkp->my)) {
             return;
+        }
         pursue = TRUE;
         goto getcad;
     }
@@ -4228,7 +4557,7 @@ pay_for_damage(const char *dmgstr, boolean cant_mollify)
        || !rn2(50)) {
 getcad:
         if (muteshk(shkp)) {
-            if (animal && shkp->mcanmove && !shkp->msleeping) {
+            if (animal && !helpless(shkp)) {
                 yelp(shkp);
             }
         } else if (pursue || uinshp || !um_dist(x, y, 1)) {
@@ -4255,7 +4584,9 @@ getcad:
         return;
     }
 
-    if (Invis) Your("invisibility does not fool %s!", shkname(shkp));
+    if (Invis) {
+        Your("invisibility does not fool %s!", shkname(shkp));
+    }
 
     Sprintf(qbuf, "%sYou did %ld %s worth of damage!%s  Pay?",
             !animal ? cad(TRUE) : "",
@@ -4271,7 +4602,7 @@ getcad:
               shkname(shkp));
         /* move shk back to his home loc */
         home_shk(shkp, FALSE);
-        pacify_shk(shkp);
+        pacify_shk(shkp, FALSE);
     } else {
         if (!animal) {
             if (!Deaf && !muteshk(shkp)) {
@@ -4317,16 +4648,19 @@ shop_object(coordxy x, coordxy y)
     struct obj *otmp;
     struct monst *shkp;
 
-    if (!(shkp = shop_keeper(*in_rooms(x, y, SHOPBASE))) || !inhishop(shkp))
+    if (!(shkp = shop_keeper(*in_rooms(x, y, SHOPBASE))) || !inhishop(shkp)) {
         return (struct obj *)0;
+    }
 
-    for (otmp = level.objects[x][y]; otmp; otmp = otmp->nexthere)
-        if (otmp->oclass != COIN_CLASS)
+    for (otmp = level.objects[x][y]; otmp; otmp = otmp->nexthere) {
+        if (otmp->oclass != COIN_CLASS) {
             break;
+        }
+    }
     /* note: otmp might have ->no_charge set, but that's ok */
-    return (otmp && costly_spot(x, y) && NOTANGRY(shkp)
-            && shkp->mcanmove && !shkp->msleeping)
-           ? otmp : (struct obj *)0;
+    return (otmp && costly_spot(x, y) && NOTANGRY(shkp) && !muteshk(shkp)) ?
+           otmp :
+           (struct obj *) 0;
 }
 
 /* give price quotes for all objects linked to this one (ie, on this spot) */
@@ -4345,12 +4679,15 @@ price_quote(struct obj *first_obj)
     putstr(tmpwin, 0, "Fine goods for sale:");
     putstr(tmpwin, 0, "");
     for (otmp = first_obj; otmp; otmp = otmp->nexthere) {
-        if (otmp->oclass == COIN_CLASS) continue;
+        if (otmp->oclass == COIN_CLASS) {
+            continue;
+        }
         cost = (otmp->no_charge || otmp == uball || otmp == uchain) ? 0L :
                 get_cost(otmp, shkp);
         contentsonly = !cost;
-        if (Has_contents(otmp))
+        if (Has_contents(otmp)) {
             cost += contained_cost(otmp, shkp, 0L, FALSE, FALSE);
+        }
         if (!cost) {
             Strcpy(price, "no charge");
             contentsonly = FALSE;
@@ -4366,14 +4703,15 @@ price_quote(struct obj *first_obj)
     } else if (cnt == 1) {
         if (!cost) {
             /* "<doname(obj)>, no charge" */
-            pline("%s!", upstart(buf)); /* buf still contains the string */
+            verbalize("%s!", upstart(buf)); /* buf contains the string */
         } else {
             /* print cost in slightly different format, so can't reuse buf;
                cost and contentsonly are already set up */
-            Sprintf(buf, "%s%s", contentsonly ? the_contents_of : "", doname(first_obj));
-            pline("%s, price %ld %s%s%s", doname(first_obj),
-                  cost, currency(cost), first_obj->quan > 1L ? " each" : "",
-                  contentsonly ? "." : shk_embellish(first_obj, cost));
+            Sprintf(buf, "%s%s", contentsonly ? the_contents_of : "",
+                    doname(first_obj));
+            verbalize("%s, price %ld %s%s%s", upstart(buf), cost,
+                      currency(cost), (first_obj->quan > 1L) ? " each" : "",
+                      contentsonly ? "." : shk_embellish(first_obj, cost));
         }
     }
     destroy_nhwindow(tmpwin);
@@ -4385,17 +4723,25 @@ shk_embellish(struct obj *itm, long int cost)
     if (!rn2(3)) {
         int o, choice = rn2(5);
 
-        if (choice == 0) choice = (cost < 100L ? 1 : cost < 500L ? 2 : 3);
+        if (choice == 0) {
+            choice = (cost < 100L ? 1 : cost < 500L ? 2 : 3);
+        }
         switch (choice) {
         case 4:
-            if (cost < 10L) break; else o = itm->oclass;
-            if (o == FOOD_CLASS) return ", gourmets' delight!";
-            if (objects[itm->otyp].oc_name_known
-                ? objects[itm->otyp].oc_magic
-                : (o == AMULET_CLASS || o == RING_CLASS   ||
-                   o == WAND_CLASS   || o == POTION_CLASS ||
-                   o == SCROLL_CLASS || o == SPBOOK_CLASS))
+            if (cost < 10L) {
+                break;
+            } else {
+                o = itm->oclass;
+            }
+            if (o == FOOD_CLASS) {
+                return ", gourmets' delight!";
+            }
+            if (objects[itm->otyp].oc_name_known ? objects[itm->otyp].oc_magic :
+                (o == AMULET_CLASS || o == RING_CLASS   ||
+                 o == WAND_CLASS   || o == POTION_CLASS ||
+                 o == SCROLL_CLASS || o == SPBOOK_CLASS)) {
                 return ", painstakingly developed!";
+            }
             return ", superb craftsmanship!";
         case 3: return ", finest quality.";
         case 2: return ", an excellent choice.";
@@ -4430,12 +4776,18 @@ shk_has_leather_jackets(struct monst *shkp)
     struct obj *otmp;
     int sx, sy;
 
-    for (sx = sroom->lx; sx <= sroom->hx; sx++)
-        for (sy = sroom->ly; sy <= sroom->hy; sy++)
-            if (costly_spot(sx, sy))
-                for (otmp = level.objects[sx][sy]; otmp; otmp = otmp->nexthere)
-                    if ((!otmp->no_charge) && (otmp->otyp == LEATHER_JACKET))
+    for (sx = sroom->lx; sx <= sroom->hx; sx++) {
+        for (sy = sroom->ly; sy <= sroom->hy; sy++) {
+            if (costly_spot(sx, sy)) {
+                for (otmp = level.objects[sx][sy]; otmp; otmp = otmp->nexthere) {
+                    if ((!otmp->no_charge) && (otmp->otyp == LEATHER_JACKET)) {
                         return TRUE;
+                    }
+                }
+            }
+        }
+    }
+
     return FALSE;
 }
 
@@ -4459,13 +4811,13 @@ shk_chat(struct monst *shkp)
     }
 
     eshk = ESHK(shkp);
-    if (ANGRY(shkp))
+    if (ANGRY(shkp)) {
         pline("%s %s how much %s dislikes %s customers.",
               Shknam(shkp),
               (!Deaf && !muteshk(shkp)) ? "mentions" : "indicates",
               noit_mhe(shkp),
               eshk->robbed ? "non-paying" : "rude");
-    else if (eshk->following) {
+    } else if (eshk->following) {
         if (strncmp(eshk->customer, plname, PL_NSIZ)) {
             if (!Deaf && !muteshk(shkp)) {
                 verbalize("%s %s!  I was looking for %s.",
@@ -4487,36 +4839,40 @@ shk_chat(struct monst *shkp)
               Shknam(shkp),
               (!Deaf && !muteshk(shkp)) ? "says" : "indicates",
               total, currency(total));
-    } else if (eshk->debit)
+    } else if (eshk->debit) {
         pline("%s %s that you owe %s %ld %s.",
               Shknam(shkp),
               (!Deaf && !muteshk(shkp)) ? "reminds you" : "indicates",
               noit_mhim(shkp), eshk->debit, currency(eshk->debit));
-    else if (eshk->credit)
+    } else if (eshk->credit) {
         pline("%s encourages you to use your %ld %s of credit.",
               Shknam(shkp), eshk->credit, currency(eshk->credit));
-    else if (eshk->robbed)
+    } else if (eshk->robbed) {
         pline("%s %s about a recent robbery.",
               Shknam(shkp),
               (!Deaf && !muteshk(shkp)) ? "complains" : "indicates concern");
-    else if ((shkmoney = money_cnt(shkp->minvent)) < 50)
+    } else if (eshk->surcharge) {
+        pline("%s %s that %s is watching you carefully.", Shknam(shkp),
+              (!Deaf && !muteshk(shkp)) ? "warns you" : "indicates",
+              noit_mhe(shkp));
+    } else if ((shkmoney = money_cnt(shkp->minvent)) < 50L) {
         pline("%s %s that business is bad.",
               Shknam(shkp),
               (!Deaf && !muteshk(shkp)) ? "complains" : "indicates");
-    else if (shkmoney > 4000)
+    } else if (shkmoney > 4000) {
         pline("%s %s that business is good.",
               Shknam(shkp),
               (!Deaf && !muteshk(shkp)) ? "says" : "indicates");
-    else if (is_izchak(shkp, FALSE)) {
+    } else if (is_izchak(shkp, FALSE)) {
         if (!Deaf && !muteshk(shkp)) {
             pline(Izchak_speaks[rn2(SIZE(Izchak_speaks))], shkname(shkp));
         }
     } else if (Role_if(PM_ARCHEOLOGIST) &&
              inhishop(shkp) &&
-             shk_has_leather_jackets(shkp))
+             shk_has_leather_jackets(shkp)) {
         pline("%s says that he's selling these fine leather jackets.",
               Shknam(shkp));
-    else {
+    } else {
         if (!Deaf && !muteshk(shkp)) {
             pline("%s talks about the problem of shoplifters.", Shknam(shkp));
         }
@@ -4533,13 +4889,16 @@ kops_gone(boolean silent)
     for (mtmp = fmon; mtmp; mtmp = mtmp2) {
         mtmp2 = mtmp->nmon;
         if (mtmp->data->mlet == S_KOP) {
-            if (canspotmon(mtmp)) cnt++;
+            if (canspotmon(mtmp)) {
+                cnt++;
+            }
             mongone(mtmp);
         }
     }
-    if (cnt && !silent)
+    if (cnt && !silent) {
         pline_The("Kop%s (disappointed) vanish%s into thin air.",
                   plur(cnt), cnt == 1 ? "es" : "");
+    }
 }
 #endif  /* KOPS */
 
@@ -4551,7 +4910,9 @@ cost_per_charge(
 {
     long tmp = 0L;
 
-    if (!shkp || !inhishop(shkp)) return(0L); /* insurance */
+    if (!shkp || !inhishop(shkp)) {
+        return 0L; /* insurance */
+    }
     tmp = get_cost(otmp, shkp);
 
     /* The idea is to make the exhaustive use of */
@@ -4563,8 +4924,11 @@ cost_per_charge(
            identification too easy; charge an amount comparable to
            what is charged for an ordinary lamp (don't bother with
            angry shk surchage) */
-        if (!altusage) tmp = (long) objects[OIL_LAMP].oc_cost;
-        else tmp += tmp / 3L;   /* djinni is being released */
+        if (!altusage) {
+            tmp = (long) objects[OIL_LAMP].oc_cost;
+        } else {
+            tmp += tmp / 3L; /* djinni is being released */
+        }
     } else if (otmp->otyp == MAGIC_MARKER) { /* 20 - 80 */
         /* no way to determine in advance   */
         /* how many charges will be wasted. */
@@ -4583,7 +4947,9 @@ cost_per_charge(
               (otmp->otyp >= MAGIC_FLUTE &&
                otmp->otyp <= DRUM_OF_EARTHQUAKE) || /* 5 - 9 */
               (otmp->oclass == WAND_CLASS)) {  /* 3 - 11 */
-        if (otmp->spe > 1) tmp /= 4L;
+        if (otmp->spe > 1) {
+            tmp /= 4L;
+        }
     } else if (otmp->oclass == SPBOOK_CLASS) {
         tmp -= tmp / 5L;
     } else if (otmp->otyp == CAN_OF_GREASE ||
@@ -4593,7 +4959,7 @@ cost_per_charge(
     } else if (otmp->otyp == POT_OIL) {
         tmp /= 5L;
     }
-    return(tmp);
+    return tmp;
 }
 
 /* Charge the player for partial use of an unpaid object.
@@ -4612,10 +4978,12 @@ check_unpaid_usage(struct obj *otmp, boolean altusage)
     if (!otmp->unpaid || !*u.ushops ||
         (otmp->spe <= 0 && objects[otmp->otyp].oc_charged))
         return;
-    if (!(shkp = shop_keeper(*u.ushops)) || !inhishop(shkp))
+    if (!(shkp = shop_keeper(*u.ushops)) || !inhishop(shkp)) {
         return;
-    if ((tmp = cost_per_charge(shkp, otmp, altusage)) == 0L)
+    }
+    if ((tmp = cost_per_charge(shkp, otmp, altusage)) == 0L) {
         return;
+    }
 
     arg1 = arg2 = "";
     if (otmp->oclass == SPBOOK_CLASS) {
@@ -4636,8 +5004,12 @@ check_unpaid_usage(struct obj *otmp, boolean altusage)
         }
     } else {
         fmt = "%s%sUsage fee, %ld %s.";
-        if (!rn2(3)) arg1 = "Hey!  ";
-        if (!rn2(3)) arg2 = "Ahem.  ";
+        if (!rn2(3)) {
+            arg1 = "Hey!  ";
+        }
+        if (!rn2(3)) {
+            arg2 = "Ahem.  ";
+        }
     }
 
     if (!Deaf && !muteshk(shkp)) {
@@ -4661,25 +5033,30 @@ costly_gold(coordxy x, coordxy y, long int amount)
     struct monst *shkp;
     struct eshk *eshkp;
 
-    if (!costly_spot(x, y)) return;
+    if (!costly_spot(x, y)) {
+        return;
+    }
     /* shkp now guaranteed to exist by costly_spot() */
     shkp = shop_keeper(*in_rooms(x, y, SHOPBASE));
 
     eshkp = ESHK(shkp);
     if (eshkp->credit >= amount) {
-        if (eshkp->credit > amount)
+        if (eshkp->credit > amount) {
             Your("credit is reduced by %ld %s.",
                  amount, currency(amount));
-        else Your("credit is erased.");
+        } else {
+            Your("credit is erased.");
+        }
         eshkp->credit -= amount;
     } else {
         delta = amount - eshkp->credit;
-        if (eshkp->credit)
+        if (eshkp->credit) {
             Your("credit is erased.");
-        if (eshkp->debit)
+        }
+        if (eshkp->debit) {
             Your("debt increases by %ld %s.",
                  delta, currency(delta));
-        else You("owe %s %ld %s.",
+        } else You("owe %s %ld %s.",
                  shkname(shkp), delta, currency(delta));
         eshkp->debit += delta;
         eshkp->loan += delta;
@@ -4695,26 +5072,34 @@ block_door(coordxy x, coordxy y)
     int roomno = *in_rooms(x, y, SHOPBASE);
     struct monst *shkp;
 
-    if (roomno < 0 || !IS_SHOP(roomno)) return(FALSE);
-    if (!IS_DOOR(levl[x][y].typ)) return(FALSE);
-    if (roomno != *u.ushops) return(FALSE);
+    if (roomno < 0 || !IS_SHOP(roomno)) {
+        return FALSE;
+    }
+    if (!IS_DOOR(levl[x][y].typ)) {
+        return FALSE;
+    }
+    if (roomno != *u.ushops) {
+        return FALSE;
+    }
 
-    if (!(shkp = shop_keeper((char)roomno)) || !inhishop(shkp))
-        return(FALSE);
+    if (!(shkp = shop_keeper((char)roomno)) || !inhishop(shkp)) {
+        return FALSE;
+    }
 
-    if (shkp->mx == ESHK(shkp)->shk.x && shkp->my == ESHK(shkp)->shk.y
+    if (shkp->mx == ESHK(shkp)->shk.x && shkp->my == ESHK(shkp)->shk.y &&
        /* Actually, the shk should be made to block _any_
         * door, including a door the player digs, if the
         * shk is within a 'jumping' distance.
         */
-       && ESHK(shkp)->shd.x == x && ESHK(shkp)->shd.y == y
-       && shkp->mcanmove && !shkp->msleeping
-       && (ESHK(shkp)->debit || ESHK(shkp)->billct || ESHK(shkp)->robbed)) {
-        pline("%s%s blocks your way!", shkname(shkp),
+       ESHK(shkp)->shd.x == x && ESHK(shkp)->shd.y == y &&
+       shkp->mcanmove && !shkp->msleeping &&
+       !helpless(shkp) &&
+       (ESHK(shkp)->debit || ESHK(shkp)->billct || ESHK(shkp)->robbed)) {
+        pline("%s%s blocks your way!", Shknam(shkp),
               Invis ? " senses your motion and" : "");
-        return(TRUE);
+        return TRUE;
     }
-    return(FALSE);
+    return FALSE;
 }
 
 /* used in domove to block diagonal shop-entry */
@@ -4727,41 +5112,46 @@ block_entry(coordxy x, coordxy y)
     struct monst *shkp;
 
     if (!(IS_DOOR(levl[u.ux][u.uy].typ) &&
-         levl[u.ux][u.uy].doormask == D_BROKEN)) return(FALSE);
+         levl[u.ux][u.uy].doormask == D_BROKEN)) return FALSE;
 
     roomno = *in_rooms(x, y, SHOPBASE);
-    if (roomno < 0 || !IS_SHOP(roomno)) return(FALSE);
-    if (!(shkp = shop_keeper((char)roomno)) || !inhishop(shkp))
-        return(FALSE);
+    if (roomno < 0 || !IS_SHOP(roomno)) {
+        return FALSE;
+    }
+    if (!(shkp = shop_keeper((char)roomno)) || !inhishop(shkp)) {
+        return FALSE;
+    }
 
-    if (ESHK(shkp)->shd.x != u.ux || ESHK(shkp)->shd.y != u.uy)
-        return(FALSE);
+    if (ESHK(shkp)->shd.x != u.ux || ESHK(shkp)->shd.y != u.uy) {
+        return FALSE;
+    }
 
     sx = ESHK(shkp)->shk.x;
     sy = ESHK(shkp)->shk.y;
 
-    if (shkp->mx == sx && shkp->my == sy
-       && shkp->mcanmove && !shkp->msleeping
-       && (x == sx-1 || x == sx+1 || y == sy-1 || y == sy+1)
-       && (Invis ||
-           (!Is_blackmarket(&u.uz) &&
-            (carrying(PICK_AXE) ||
-             carrying(DWARVISH_MATTOCK) ||
-             carrying(CRYSTAL_PICK))) ||
-           u.usteed)) {
-        pline("%s%s blocks your way!", shkname(shkp),
+    if (shkp->mx == sx && shkp->my == sy && !helpless(shkp) &&
+        shkp->mcanmove && !shkp->msleeping &&
+        (x == sx-1 || x == sx+1 || y == sy-1 || y == sy+1) &&
+        (Invis ||
+          (!Is_blackmarket(&u.uz) &&
+           (carrying(PICK_AXE) ||
+            carrying(DWARVISH_MATTOCK) ||
+            carrying(CRYSTAL_PICK))) ||
+          u.usteed)) {
+        pline("%s%s blocks your way!", Shknam(shkp),
               Invis ? " senses your motion and" : "");
-        return(TRUE);
+        return TRUE;
     }
-    return(FALSE);
+    return FALSE;
 }
 
 /* "your" or "Foobar's" or "the" */
 char *
 shk_your(char *buf, struct obj *obj)
 {
-    if (!shk_owns(buf, obj) && !mon_owns(buf, obj))
+    if (!shk_owns(buf, obj) && !mon_owns(buf, obj)) {
         Strcpy(buf, carried(obj) ? "your" : "the");
+    }
     return buf;
 }
 
@@ -4791,8 +5181,9 @@ shk_owns(char *buf, struct obj *obj)
 static char *
 mon_owns(char *buf, struct obj *obj)
 {
-    if (obj->where == OBJ_MINVENT)
+    if (obj->where == OBJ_MINVENT) {
         return strcpy(buf, s_suffix(y_monnam(obj->ocarry)));
+    }
     return (char *)0;
 }
 
@@ -4833,7 +5224,7 @@ cad(boolean altusage) /**< used as a verbalized exclamation:  \"Cad! ...\" */
 
 #ifdef __SASC
 void
-sasc_bug(struct obj *op, unsigned x){
+sasc_bug(struct obj *op, unsigned x) {
     op->unpaid=x;
 }
 #endif
