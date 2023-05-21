@@ -367,7 +367,7 @@ curses_create_main_windows(void)
     refresh();
 
     curses_refresh_nethack_windows();
-
+    /*
     if (iflags.window_inited) {
         curses_update_stats();
         if (iflags.perm_invent) {
@@ -376,6 +376,7 @@ curses_create_main_windows(void)
     } else {
         iflags.window_inited = TRUE;
     }
+    */
 }
 
 
@@ -462,6 +463,7 @@ curses_choose_character(void)
     char pbuf[QBUFSZ];
     char choice[QBUFSZ];
     char tmpchoice[QBUFSZ];
+    boolean conducts = FALSE;
 
 #ifdef TUTORIAL_MODE
     winid win;
@@ -499,15 +501,13 @@ curses_choose_character(void)
 
     prompt[count_off] = '\0';
     Snprintf(choice, sizeof(choice), "%s%c", tmpchoice, '\033');
-    if (strchr(tmpchoice, 't')) {       /* Tutorial mode */
-        mvaddstr(0, 1, "New? Press t to enter a tutorial.");
-    }
 
     /* Add capital letters as choices that aren't displayed */
-
     for (count = 0; tmpchoice[count]; count++) {
         tmpchoice[count] = toupper(tmpchoice[count]);
     }
+    /* Add letters for conducts */
+    strcat(tmpchoice, "cC");
 
     strcat(choice, tmpchoice);
 
@@ -525,6 +525,10 @@ curses_choose_character(void)
     if (pick4u == 'q') {        /* Quit or cancelled */
         clearlocks();
         curses_bail(0);
+    }
+
+    if (pick4u == 'c') {
+        pick4u = 'n'; conducts = TRUE;
     }
 
     if (pick4u == 'y') {
@@ -587,6 +591,18 @@ curses_choose_character(void)
         flags.tutorial = 1;
     }
 #endif
+
+    if (conducts) {
+        clear();
+        mvaddstr(0, 1, "Choose conducts");
+        refresh();
+
+        /* has Quit been selected? */
+        if (!show_conduct_selection_dialog()) {
+            clearlocks();
+            curses_bail(0);
+        }
+    }
 
     clear();
     refresh();
@@ -973,13 +989,12 @@ curses_init_options(void)
 void
 curses_display_splash_window(void)
 {
-    int x_start;
-    int y_start;
+    int i, x_start, y_start;
     int which_variant = NETHACK_CURSES; /* Default to NetHack */
     curses_get_window_xy(MAP_WIN, &x_start, &y_start);
 
     if ((term_cols < 70) || (term_rows < 20)) {
-        iflags.wc_splash_screen = FALSE;        /* No room for s.s. */
+        iflags.wc_splash_screen = FALSE; /* No room for s.s. */
     }
 #ifdef DEF_GAME_NAME
     if (strcmp(DEF_GAME_NAME, "SlashEM") == 0) {
@@ -1005,9 +1020,11 @@ curses_display_splash_window(void)
         which_variant = DNETHACK_CURSES;
     }
 
-
-    curses_toggle_color_attr(stdscr, CLR_WHITE, A_NORMAL, ON);
     if (iflags.wc_splash_screen) {
+        if (iflags.wc2_guicolor) {
+            curses_toggle_color_attr(stdscr, CLR_WHITE, A_NORMAL, ON);
+        }
+
         switch (which_variant) {
         case NETHACK_CURSES:
             mvaddstr(y_start, x_start, NETHACK_SPLASH_A);
@@ -1068,9 +1085,11 @@ curses_display_splash_window(void)
         default:
             impossible("which_variant number %d out of range", which_variant);
         }
-    }
 
-    curses_toggle_color_attr(stdscr, CLR_WHITE, A_NORMAL, OFF);
+        if (iflags.wc2_guicolor) {
+            curses_toggle_color_attr(stdscr, CLR_WHITE, A_NORMAL, OFF);
+        }
+    }
 
 #ifdef COPYRIGHT_BANNER_A
     mvaddstr(y_start, x_start, COPYRIGHT_BANNER_A);
@@ -1091,6 +1110,10 @@ curses_display_splash_window(void)
     mvaddstr(y_start, x_start, COPYRIGHT_BANNER_D);
     y_start++;
 #endif
+
+    mvaddstr(y_start + 1, x_start, str_tutorial_prompt);
+    mvaddstr(y_start + 3, x_start, str_conduct_tracking_prompt);
+
     refresh();
 }
 
@@ -1100,7 +1123,6 @@ void
 curses_cleanup(void)
 {
 }
-
 
 /** Show all available colors with names. */
 int

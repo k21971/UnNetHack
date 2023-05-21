@@ -392,7 +392,7 @@ extern int doup(void);
 extern void save_currentstate(void);
 #endif
 extern void goto_level(d_level *, boolean, boolean, boolean);
-extern void schedule_goto(d_level *, boolean, boolean, int, const char *, const char *);
+extern void schedule_goto(d_level *, int, const char *, const char *);
 extern void deferred_goto(void);
 extern boolean revive_corpse(struct obj *);
 extern void revive_mon(ANY_P *, long);
@@ -1013,6 +1013,7 @@ extern void strbuf_reserve(strbuf_t *, int);
 extern void strbuf_empty(strbuf_t *);
 extern void strbuf_nl_to_crlf(strbuf_t *);
 extern int swapbits(int, int, int);
+extern void shuffle_int_array(int *, int);
 extern void strip_brackets(char *);
 /* note: the snprintf CPP wrapper includes the "fmt" argument in "..."
    (__VA_ARGS__) to allow for zero arguments after fmt */
@@ -2285,6 +2286,9 @@ extern boolean successful_cdt(int);
 extern boolean intended_cdt(int);
 extern boolean superfluous_cdt(int);
 extern boolean failed_cdt(int);
+extern const char *str_tutorial_prompt;
+extern const char *str_conduct_tracking_prompt;
+extern boolean show_conduct_selection_dialog(void);
 
 /* ### rumors.c ### */
 

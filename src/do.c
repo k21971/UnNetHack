@@ -1388,6 +1388,7 @@ goto_level(d_level *newlevel, boolean at_stairs, boolean falling, boolean portal
     struct monst *mtmp;
     char whynot[BUFSZ];
     char *annotation;
+    boolean portal_stone = (u.utotype & UTOTYPE_PORTAL_STONE);
 
     if (dunlev(newlevel) > dunlevs_in_dungeon(newlevel)) {
         newlevel->dlevel = dunlevs_in_dungeon(newlevel);
@@ -1576,10 +1577,18 @@ goto_level(d_level *newlevel, boolean at_stairs, boolean falling, boolean portal
 
         for (ttrap = ftrap; ttrap; ttrap = ttrap->ntrap) {
             /* find the portal with the right destination level */
-            if (ttrap->ttyp == MAGIC_PORTAL &&
-                 u.uz0.dnum == ttrap->dst.dnum &&
-                 u.uz0.dlevel == ttrap->dst.dlevel) {
-                break;
+            if (ttrap->ttyp == MAGIC_PORTAL) {
+                if (u.uz0.dnum == ttrap->dst.dnum &&
+                     u.uz0.dlevel == ttrap->dst.dlevel) {
+                    break;
+                }
+
+                /* finding portal stone portal */
+                if (portal_stone &&
+                     ttrap->dst.dnum == -1 &&
+                     ttrap->dst.dlevel == -1) {
+                    break;
+                }
             }
         }
 
@@ -2016,26 +2025,13 @@ final_level(void)
 static char *dfr_pre_msg = 0,   /* pline() before level change */
             *dfr_post_msg = 0; /* pline() after level change */
 
-/* change levels at the end of this turn, after monsters finish moving */
+/** change levels at the end of this turn, after monsters finish moving */
 void
-schedule_goto(d_level *tolev, boolean at_stairs, boolean falling, int portal_flag, const char *pre_msg, const char *post_msg)
+schedule_goto(d_level *tolev, int utotype_flags,
+              const char *pre_msg, const char *post_msg)
 {
-    int typmask = 0100;     /* non-zero triggers `deferred_goto' */
-
-    /* destination flags (`goto_level' args) */
-    if (at_stairs) {
-        typmask |= 1;
-    }
-    if (falling) {
-        typmask |= 2;
-    }
-    if (portal_flag) {
-        typmask |= 4;
-    }
-    if (portal_flag < 0) {
-        typmask |= 0200; /* flag for portal removal */
-    }
-    u.utotype = typmask;
+    /* UTOTYPE_DEFERRED is used, so UTOTYPE_NONE can trigger deferred_goto() */
+    u.utotype = utotype_flags | UTOTYPE_DEFERRED;
     /* destination level */
     assign_level(&u.utolev, tolev);
 
