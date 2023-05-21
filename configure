@@ -1442,12 +1442,12 @@ Fine tuning of the installation directories:
   --libdir=DIR            object code libraries [EPREFIX/lib]
   --includedir=DIR        C header files [PREFIX/include]
   --oldincludedir=DIR     C header files for non-gcc [/usr/include]
-  --datarootdir=DIR       read-only arch.-independent data root [PREFIX/share]
+  --datarootdir=DIR       read-only arch.-independent data root [PREFIX]
   --datadir=DIR           read-only architecture-independent data [DATAROOTDIR]
   --infodir=DIR           info documentation [DATAROOTDIR/info]
   --localedir=DIR         locale-dependent data [DATAROOTDIR/locale]
   --mandir=DIR            man documentation [DATAROOTDIR/man]
-  --docdir=DIR            documentation root [DATAROOTDIR/doc/unnethack]
+  --docdir=DIR            documentation root [DATAROOTDIR/doc]
   --htmldir=DIR           html documentation [DOCDIR]
   --dvidir=DIR            dvi documentation [DOCDIR]
   --pdfdir=DIR            pdf documentation [DOCDIR]
@@ -1534,7 +1534,7 @@ Optional Features:
   --enable-dump-html      Dump an HTML file (default=yes)
   --enable-dump-html-css-file=FILE
                           Path to the css dump file (default=yes, default
-                          file=["/unnethack-6.0.7/unnethack_dump.css"])
+                          file=["/unnethack-6.0.8/unnethack_dump.css"])
   --enable-dump-html-css-embedded
                           CSS file should be included in the HTML dump
                           (default=yes)
@@ -1543,7 +1543,7 @@ Optional Features:
   --enable-utf8-glyphs    Enable UTF-8 glyphs in TTY (default=yes)
   --enable-whereis-file=FILE
                           Log information about running games (default=yes,
-                          default file=["/unnethack-6.0.7/var/whereis/%n.whereis"])
+                          default file=["/unnethack-6.0.8/var/whereis/%n.whereis"])
   --enable-wizmode=USER   enable wizard mode for the specified user
                           (default=no, default user=[wizard])
   --enable-file-areas     Place files in different directories (default=yes)
@@ -2446,9 +2446,9 @@ printf "%s\n" "#define PACKAGE_URL \"$PACKAGE_URL\"" >>confdefs.h
 if test -n "$CONFIG_SITE"; then
   ac_site_files="$CONFIG_SITE"
 elif test "x$prefix" != xNONE; then
-  ac_site_files="$prefix/share/config.site $prefix/etc/config.site"
+  ac_site_files="$prefix/config.site $prefix/etc/config.site"
 else
-  ac_site_files="$ac_default_prefix/share/config.site $ac_default_prefix/etc/config.site"
+  ac_site_files="$ac_default_prefix/config.site $ac_default_prefix/etc/config.site"
 fi
 
 for ac_site_file in $ac_site_files
@@ -7483,10 +7483,10 @@ if test ${enable_dump_html_css_file+y}
 then :
   enableval=$enable_dump_html_css_file; if test "$enableval" != no; then enable_dump_html_css_file=yes;
          if test "$enableval" != yes; then dump_html_css_file=$enableval;
-         else dump_html_css_file="/unnethack-6.0.7/unnethack_dump.css"; fi;
+         else dump_html_css_file="/unnethack-6.0.8/unnethack_dump.css"; fi;
         else enable_dump_html_css_file=no; fi
 else $as_nop
-  enable_dump_html_css_file=yes;dump_html_css_file="/unnethack-6.0.7/unnethack_dump.css"
+  enable_dump_html_css_file=yes;dump_html_css_file="/unnethack-6.0.8/unnethack_dump.css"
 fi
 
    if test "$enable_dump_html_css_file" != "no" ; then
@@ -7599,7 +7599,7 @@ then :
          else whereis_file=%n.whereis; fi;
         else enable_whereis_file=no; fi
 else $as_nop
-  enable_whereis_file=yes;whereis_file="/unnethack-6.0.7/var/whereis/%n.whereis"
+  enable_whereis_file=yes;whereis_file="/unnethack-6.0.8/var/whereis/%n.whereis"
 fi
 
    if test "$enable_whereis_file" != "no" ; then
