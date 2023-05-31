@@ -1,13 +1,13 @@
 # If not null, added to string "To get local support, " in the support
 # # information help.
-#SUPPORT=call Izchak at extension 42.
+SUPPORT=Contact bhaak on irc.libera.chat channel #unnethack
 
 # Number added into the game's deterministic hash functions to prevent
 # players from computing the result of said functions. Mostly useful on
 # multi-user installs.
 # Do NOT keep this default value of 100, choose an arbitrary one, and don't
 # disclose it to your players.
-#SERVERSEED=100
+SERVERSEED=100
 
 # If set to non-zero, ignore any user supplied seed.
 DISABLE_USER_SEED=1
