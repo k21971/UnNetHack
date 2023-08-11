@@ -8,11 +8,9 @@
 
 #include <limits.h>
 
-#ifdef SINKS
 static void polymorph_sink(void);
 static boolean teleport_sink(void);
 static void dosinkring(struct obj *);
-#endif /* SINKS */
 
 static int drop(struct obj *);
 static int wipeoff(void);
@@ -114,7 +112,7 @@ boulder_hits_pool(struct obj *otmp, int rx, int ry, boolean pushing)
                 docrt();
                 vision_full_recalc = 1;
                 You("find yourself on dry land again!");
-            } else if (lava && distu(rx, ry) <= 2) {
+            } else if (lava && next2u(rx, ry)) {
                 You("are hit by molten %s%c", hliquid("lava"),
                     Fire_resistance ? '.' : '!');
                 burn_away_slime();
@@ -164,7 +162,7 @@ flooreffects(struct obj *obj, coordxy x, coordxy y, const char *verb)
         ttyp = t->ttyp;
         tseen = t->tseen ? TRUE : FALSE;
         if (((mtmp = m_at(x, y)) && mtmp->mtrapped) ||
-            (u.utrap && u.ux == x && u.uy == y)) {
+            (u.utrap && u_at(x, y))) {
             if (*verb && (cansee(x, y) || distu(x, y) == 0)) {
                 pline("%s boulder %s into the pit%s.",
                       Blind ? "A" : "The",
@@ -214,7 +212,7 @@ flooreffects(struct obj *obj, coordxy x, coordxy y, const char *verb)
             }
         }
         if (*verb) {
-            if (Blind && (x == u.ux) && (y == u.uy)) {
+            if (Blind && u_at(x, y)) {
                 You_hear("a CRASH! beneath you.");
             } else if (!Blind && cansee(x, y)) {
                 pline_The("boulder %s%s.",
@@ -265,8 +263,7 @@ flooreffects(struct obj *obj, coordxy x, coordxy y, const char *verb)
         /* Reasonably bulky objects (arbitrary) splash when dropped.
          * If you're floating above the water even small things make noise.
          * Stuff dropped near fountains always misses */
-        if ((Blind || (Levitation || Flying || Wwalking)) &&
-             !Deaf && ((x == u.ux) && (y == u.uy))) {
+        if ((Blind || (Levitation || Flying)) && !Deaf && u_at(x, y)) {
             if (!Underwater) {
                 if (weight(obj) > 9) {
                     pline("Splash!");
@@ -278,7 +275,7 @@ flooreffects(struct obj *obj, coordxy x, coordxy y, const char *verb)
             newsym(x, y);
         }
         return water_damage(obj, NULL, FALSE) == ER_DESTROYED;
-    } else if (u.ux == x && u.uy == y && (t = t_at(x, y)) != 0 &&
+    } else if (u_at(x, y) && (t = t_at(x, y)) != 0 &&
                (uteetering_at_seen_pit(t) || uescaped_shaft(t))) {
         /* you escaped a pit and are standing on the precipice */
         if (Blind && !Deaf) {
@@ -393,7 +390,6 @@ doaltarobj(struct obj *obj)
     }
 }
 
-#ifdef SINKS
 /** Transforms the sink at the player's position into
  * a fountain, throne, altar or grave. */
 static void
@@ -634,7 +630,6 @@ giveback:
         useup(obj);
     }
 }
-#endif
 
 /* some common tests when trying to drop or throw items */
 boolean
@@ -720,13 +715,12 @@ drop(struct obj *obj)
                 mbodypart(u.ustuck, STOMACH));
         }
     } else {
-#ifdef SINKS
         if ((obj->oclass == RING_CLASS || obj->otyp == MEAT_RING) &&
            IS_SINK(levl[u.ux][u.uy].typ)) {
             dosinkring(obj);
             return 1;
         }
-#endif
+
         if (!can_reach_floor(TRUE)) {
             if (flags.verbose) {
                 You("drop %s.", doname(obj));
@@ -1349,10 +1343,12 @@ u_collide_m(struct monst *mtmp)
        it was already here.  Randomly move you to an adjacent spot
        or else the monster to any nearby location.  Prior to 3.3.0
        the latter was done unconditionally. */
-    if (!rn2(2) && enexto(&cc, u.ux, u.uy, youmonst.data) && distu(cc.x, cc.y) <= 2) {
+    if (!rn2(2) &&
+        enexto(&cc, u.ux, u.uy, youmonst.data) &&
+        next2u(cc.x, cc.y)) {
         u_on_newpos(cc.x, cc.y); /*[maybe give message here?]*/
     } else {
-        mnexto(mtmp);
+        mnexto(mtmp, RLOC_NOMSG);
     }
 
     if ((mtmp = m_at(u.ux, u.uy)) != 0) {
@@ -1362,7 +1358,7 @@ u_collide_m(struct monst *mtmp)
         if (wizard) {
             pline("(monster in hero's way)");
         }
-        if (!rloc(mtmp, TRUE) || (mtmp = m_at(u.ux, u.uy)) != 0) {
+        if (!rloc(mtmp, RLOC_NOMSG) || (mtmp = m_at(u.ux, u.uy)) != 0) {
             /* no room to move it; send it away, to return later */
             m_into_limbo(mtmp);
         }
@@ -1735,7 +1731,7 @@ goto_level(d_level *newlevel, boolean at_stairs, boolean falling, boolean portal
             distu(cc.x, cc.y) <= 2)
             u_on_newpos(cc.x, cc.y); /*[maybe give message here?]*/
         else
-            mnexto(mtmp);
+            mnexto(mtmp, RLOC_NOMSG);
 
         if ((mtmp = m_at(u.ux, u.uy)) != 0) {
             /* there was an unconditional impossible("mnexto failed (do.c)")
@@ -1744,7 +1740,7 @@ goto_level(d_level *newlevel, boolean at_stairs, boolean falling, boolean portal
             if (wizard) {
                 pline("(monster in hero's way)");
             }
-            if (!rloc(mtmp, TRUE)) {
+            if (!rloc(mtmp, RLOC_NOMSG)) {
                 /* no room to move it; send it away, to return later */
                 migrate_to_level(mtmp, ledger_no(&u.uz), MIGR_RANDOM,
                                  (coord *) 0);
@@ -2194,7 +2190,7 @@ revive_corpse(struct obj *corpse)
                     ttmp->tseen = TRUE;
                     pline("%s claws itself out of the ground!", Amonnam(mtmp));
                     newsym(mtmp->mx, mtmp->my);
-                } else if (distu(mtmp->mx, mtmp->my) < 5*5) {
+                } else if (mdistu(mtmp) < 5*5) {
                     You_hear("scratching noises.");
                 }
                 break;

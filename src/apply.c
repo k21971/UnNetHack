@@ -231,7 +231,7 @@ its_dead(int rx, int ry, int *resp, struct obj *tobj)
         return TRUE;
 
     } else if (corpse) {
-        boolean here = (rx == u.ux && ry == u.uy);
+        boolean here = u_at(rx, ry);
         boolean one = (corpse->quan == 1L && !more_corpses), reviver = FALSE;
         int visglyph, corpseglyph;
 
@@ -264,7 +264,7 @@ its_dead(int rx, int ry, int *resp, struct obj *tobj)
         if (Blind) {
             /* ignore statue->dknown; it'll always be set */
             Sprintf(buf, "%s %s",
-                    (rx == u.ux && ry == u.uy) ? "This" : "That",
+                    u_at(rx, ry) ? "This" : "That",
                     humanoid(mptr) ? "person" : "creature");
             what = buf;
         } else {
@@ -559,7 +559,7 @@ use_magic_whistle(struct obj *obj)
                     seemimic(mtmp);
                 }
                 omx = mtmp->mx, omy = mtmp->my;
-                mnexto(mtmp);
+                mnexto(mtmp, RLOC_NONE);
                 if (mtmp->mx != omx || mtmp->my != omy) {
                     mtmp->mundetected = 0; /* reveal non-mimic hider */
                     if (mintrap(mtmp, NO_TRAP_FLAGS) == Trap_Killed_Mon) {
@@ -686,7 +686,7 @@ use_leash(struct obj *obj)
         return 0;
     }
 
-    if ((cc.x == u.ux) && (cc.y == u.uy)) {
+    if (u_at(cc.x, cc.y)) {
         if (u.usteed && u.dz > 0) {
             mtmp = u.usteed;
             spotmon = 1;
@@ -774,10 +774,10 @@ next_to_u(void)
             continue;
         }
         if (mtmp->mleashed) {
-            if (distu(mtmp->mx, mtmp->my) > 2) {
-                mnexto(mtmp);
+            if (!next2u(mtmp->mx, mtmp->my)) {
+                mnexto(mtmp, RLOC_NOMSG);
             }
-            if (distu(mtmp->mx, mtmp->my) > 2) {
+            if (!next2u(mtmp->mx, mtmp->my)) {
                 for (otmp = invent; otmp; otmp = otmp->nobj) {
                     if (otmp->otyp == LEASH &&
                        otmp->leashmon == (int)mtmp->m_id) {
@@ -1031,7 +1031,7 @@ use_mirror(struct obj *obj)
         freeinv(obj);
         (void) mpickobj(mtmp, obj);
         if (!tele_restrict(mtmp)) {
-            (void) rloc(mtmp, TRUE);
+            (void) rloc(mtmp, RLOC_MSG);
         }
     } else if (monable && is_weeping(mtmp->data)) {
         if (vis) {
@@ -2662,8 +2662,7 @@ use_trap(struct obj *otmp)
         return;
     }
     ttyp = (otmp->otyp == LAND_MINE) ? LANDMINE : BEAR_TRAP;
-    if (otmp == trapinfo.tobj &&
-        u.ux == trapinfo.tx && u.uy == trapinfo.ty) {
+    if (otmp == trapinfo.tobj && u_at(trapinfo.tx, trapinfo.ty)) {
         You("resume setting %s %s.",
             shk_your(buf, otmp),
             defsyms[trap_to_defsym(what_trap(ttyp))].explanation);
@@ -3202,8 +3201,8 @@ use_pole(struct obj *obj)
         hitm &&
         !DEADMONSTER(hitm) &&
         cansee(hitm->mx, hitm->my) &&
-        (distu(hitm->mx, hitm->my) <= max_range) &&
-        (distu(hitm->mx, hitm->my) >= min_range)) {
+        (mdistu(hitm) <= max_range) &&
+        (mdistu(hitm) >= min_range)) {
         cc.x = hitm->mx;
         cc.y = hitm->my;
     }
@@ -3655,7 +3654,7 @@ wanexpl:
 
     case WAN_TELEPORTATION:
         /* WAC make tele trap if you broke a wand of teleport */
-        if ((obj->spe > 2) && rn2(obj->spe - 2) && !level.flags.noteleport &&
+        if ((obj->spe > 2) && rn2(obj->spe - 2) && !noteleport_level(&youmonst) &&
             !u.uswallow && !On_stairs(u.ux, u.uy) && (!IS_FURNITURE(levl[u.ux][u.uy].typ) &&
                                                       !IS_ROCK(levl[u.ux][u.uy].typ) &&
                                                       !closed_door(u.ux, u.uy) && !t_at(u.ux, u.uy))) {

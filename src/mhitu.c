@@ -261,7 +261,7 @@ expels(struct monst *mtmp, struct permonst *mdat, boolean message)
         }
     }
     unstuck(mtmp); /* ball&chain returned in unstuck() */
-    mnexto(mtmp);
+    mnexto(mtmp, RLOC_NOMSG);
     newsym(u.ux, u.uy);
     spoteffects(TRUE);
     /* to cover for a case where mtmp is not in a next square */
@@ -382,11 +382,11 @@ mattacku(struct monst *mtmp)
     struct  attack  *mattk, alt_attk;
     int i, j=0, tmp, sum[NATTK];
     struct  permonst *mdat = mtmp->data;
-    boolean ranged = (distu(mtmp->mx, mtmp->my) > 3);
+    boolean ranged = (mdistu(mtmp) > 3);
     /* Is it near you?  Affects your actions */
     boolean range2 = !monnear(mtmp, mtmp->mux, mtmp->muy);
     /* Does it think it's near you?  Affects its actions */
-    boolean foundyou = (mtmp->mux==u.ux && mtmp->muy==u.uy);
+    boolean foundyou = u_at(mtmp->mux, mtmp->muy);
     /* Is it attacking you or your image? */
     boolean youseeit = canseemon(mtmp);
     /* Might be attacking your image around the corner, or
@@ -423,14 +423,14 @@ mattacku(struct monst *mtmp)
         }
         /* Orcs like to steal and eat horses and the like */
         if (!rn2(is_orc(mtmp->data) ? 2 : 4) &&
-            distu(mtmp->mx, mtmp->my) <= 2) {
+            next2u(mtmp->mx, mtmp->my)) {
             /* Attack your steed instead */
             i = mattackm(mtmp, u.usteed);
             if ((i & MM_AGR_DIED)) {
                 return 1;
             }
             /* make sure steed is still alive and within range */
-            if ((i & MM_DEF_DIED) || !u.usteed || distu(mtmp->mx, mtmp->my) > 2) {
+            if ((i & MM_DEF_DIED) || !u.usteed || !next2u(mtmp->mx, mtmp->my)) {
                 return 0;
             }
             /* Let your steed retaliate */
@@ -1548,7 +1548,7 @@ do_stone:
                   "brags about the goods some dungeon explorer provided" :
                   "makes some remarks about how difficult theft is lately");
             if (!tele_restrict(mtmp)) {
-                (void) rloc(mtmp, FALSE);
+                (void) rloc(mtmp, RLOC_MSG);
             }
             return 3;
         } else if (mtmp->mcan) {
@@ -1560,7 +1560,7 @@ do_stone:
             }
             if (rn2(3)) {
                 if (!tele_restrict(mtmp)) {
-                    (void) rloc(mtmp, FALSE);
+                    (void) rloc(mtmp, RLOC_MSG);
                 }
                 return 3;
             }
@@ -1574,7 +1574,7 @@ do_stone:
             break;
         default:
             if (!is_robber && !tele_restrict(mtmp)) {
-                (void) rloc(mtmp, FALSE);
+                (void) rloc(mtmp, RLOC_MSG);
             }
             if (is_robber && *buf) {
                 if (canseemon(mtmp)) {
@@ -1600,7 +1600,9 @@ do_stone:
 #endif
     case AD_SAMU:
         hitmsg(mtmp, mattk);
-        /* when the Wiz hits, 1/20 steals the amulet */
+        /* when the Wizard or quest nemesis hits, there's a 1/20 chance
+           to steal a quest artifact (any but the one for the hero's
+           own role) or the Amulet or one of the invocation tools */
         if (!rn2(20)) {
             stealamulet(mtmp);
         }
@@ -1755,7 +1757,7 @@ do_stone:
                 return 2;
             } else if (!rn2(33)) {
                 if (!tele_restrict(mtmp)) {
-                    (void) rloc(mtmp, FALSE);
+                    (void) rloc(mtmp, RLOC_MSG);
                 }
                 monflee(mtmp, d(3, 6), TRUE, FALSE);
                 return 3;
@@ -2720,7 +2722,7 @@ gazemu(struct monst *mtmp, struct attack *mattk)
 
     case AD_BLND:
         if (canseemon(mtmp) && !resists_blnd(&youmonst) &&
-             distu(mtmp->mx, mtmp->my) <= BOLT_LIM*BOLT_LIM) {
+             mdistu(mtmp) <= BOLT_LIM * BOLT_LIM) {
             if (cancelled) {
                 react = rn1(2, 2); /* "puzzled" || "dazzled" */
                 already = (mtmp->mcansee == 0);
@@ -3099,7 +3101,7 @@ doseduce(struct monst *mon)
                 Ring_gone(uright);
                 /* ring removal might cause loss of levitation which could
                    drop hero onto trap that transports hero somewhere else */
-                if (u.utotype || distu(mon->mx, mon->my) > 2) {
+                if (u.utotype || !next2u(mon->mx, mon->my)) {
                     return 1;
                 }
                 setworn(ring, RIGHT_RING);
@@ -3107,7 +3109,7 @@ doseduce(struct monst *mon)
                 /* see "replaces" note above */
                 pline("%s replaces %s with %s.", Who, yname(uleft), yname(ring));
                 Ring_gone(uleft);
-                if (u.utotype || distu(mon->mx, mon->my) > 2) {
+                if (u.utotype || !next2u(mon->mx, mon->my)) {
                     return 1;
                 }
                 setworn(ring, LEFT_RING);
@@ -3144,7 +3146,7 @@ doseduce(struct monst *mon)
        and changing location, so hero might not be adjacent to seducer
        any more (mayberem() has its own adjacency test so we don't need
        to check after each potential removal) */
-    if (u.utotype || distu(mon->mx, mon->my) > 2) {
+    if (u.utotype || !next2u(mon->mx, mon->my)) {
         return 1;
     }
 
@@ -3158,7 +3160,7 @@ doseduce(struct monst *mon)
         /* else no regret message if can't see or hear seducer */
 
         if (!tele_restrict(mon)) {
-            (void) rloc(mon, TRUE);
+            (void) rloc(mon, RLOC_MSG);
         }
         return 1;
     }
@@ -3296,7 +3298,7 @@ doseduce(struct monst *mon)
         mon->mcan = 1; /* monster is worn out */
     }
     if (!tele_restrict(mon)) {
-        (void) rloc(mon, TRUE);
+        (void) rloc(mon, RLOC_MSG);
     }
 
     /* After all has been said and done, try switching the gender of the foocubus.
@@ -3370,7 +3372,7 @@ mayberem(struct monst *mon, const char *seducer, struct obj *obj, const char *st
     }
     /* removal of a previous item might have sent the hero elsewhere
        (loss of levitation that leads to landing on a transport trap) */
-    if (u.utotype || distu(mon->mx, mon->my) > 2) {
+    if (u.utotype || !next2u(mon->mx, mon->my)) {
         return;
     }
 

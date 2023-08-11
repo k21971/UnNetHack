@@ -10,9 +10,7 @@
 static void maybe_wail(void);
 static int moverock(void);
 static int still_chewing(coordxy, coordxy);
-#ifdef SINKS
 static void dosinkfall(void);
-#endif
 static boolean findtravelpath(boolean (*)(coordxy, coordxy));
 static boolean trapmove(coordxy, coordxy, struct trap *);
 static struct monst *monstinroom(struct permonst *, int);
@@ -904,7 +902,6 @@ movobj(struct obj *obj, coordxy ox, coordxy oy)
     newsym(ox, oy);
 }
 
-#ifdef SINKS
 static NEARDATA const char fell_on_sink[] = "fell onto a sink";
 
 static void
@@ -991,7 +988,6 @@ dosinkfall(void)
        through float_down(), but make sure BFlying is up to date */
     float_vs_flight();
 }
-#endif
 
 /* intended to be called only on ROCKs */
 boolean
@@ -1442,7 +1438,8 @@ static boolean
 findtravelpath(boolean (*guess) (coordxy, coordxy))
 {
     /* if travel to adjacent, reachable location, use normal movement rules */
-    if (!guess && iflags.travel1 && distmin(u.ux, u.uy, u.tx, u.ty) == 1) {
+    if (!guess && iflags.travel1 &&
+        next2u(u.tx, u.ty)) { /* one step away */
         flags.run = 0;
         if (test_move(u.ux, u.uy, u.tx-u.ux, u.ty-u.uy, TEST_MOVE)) {
             u.dx = u.tx-u.ux;
@@ -1579,7 +1576,7 @@ noguess:
                 }
             }
 
-            if (px == u.ux && py == u.uy) {
+            if (u_at(px, py)) {
                 /* no guesses, just go in the general direction */
                 u.dx = sgn(u.tx - u.ux);
                 u.dy = sgn(u.ty - u.uy);
@@ -1619,7 +1616,7 @@ is_valid_travelpt(coordxy x, coordxy y)
     boolean ret;
     int g = glyph_at(x,y);
 
-    if (x == u.ux && y == u.uy) {
+    if (u_at(x, y)) {
         return TRUE;
     }
     if (isok(x,y) && glyph_is_cmap(g) && S_stone == glyph_to_cmap(g) && !levl[x][y].seenv) {
@@ -2227,7 +2224,7 @@ domove(void)
         }
 
         if (u.ustuck && (x != u.ustuck->mx || y != u.ustuck->my)) {
-            if (distu(u.ustuck->mx, u.ustuck->my) > 2) {
+            if (!next2u(u.ustuck->mx, u.ustuck->my)) {
                 /* perhaps it fled (or was teleported or ... ) */
                 u.ustuck = 0;
             } else if (sticks(youmonst.data)) {
@@ -3038,7 +3035,7 @@ spoteffects(boolean pick)
     /* prevent recursion from affecting the hero all over again
        [hero poly'd to iron golem enters water here, drown() inflicts
        damage that triggers rehumanize() which calls spoteffects()...] */
-    if (inspoteffects && u.ux == spotloc.x && u.uy == spotloc.y &&
+    if (inspoteffects && u_at(spotloc.x, spotloc.y) &&
         /* except when reason is transformed terrain (ice -> water) */
         spotterrain == levl[u.ux][u.uy].typ &&
         /* or transformed trap (land mine -> pit) */
@@ -3060,11 +3057,11 @@ spoteffects(boolean pick)
     }
 
     check_special_room(FALSE);
-#ifdef SINKS
+
     if (IS_SINK(levl[u.ux][u.uy].typ) && Levitation) {
         dosinkfall();
     }
-#endif
+
     if (!in_steed_dismounting) { /* if dismounting, we'll check again later */
         boolean pit;
 
@@ -3168,7 +3165,7 @@ spoteffects(boolean pick)
             }
             break;
         }
-        mnexto(mtmp); /* have to move the monster */
+        mnexto(mtmp, RLOC_NOMSG); /* have to move the monster */
     }
  spotdone:
     if (!--inspoteffects) {
@@ -3583,13 +3580,9 @@ pickup_checks(void)
 
         if (IS_THRONE(lev->typ)) {
             pline("It must weigh%s a ton!", lev->looted ? " almost" : "");
-        }
-#ifdef SINKS
-        else if (IS_SINK(lev->typ)) {
+        } else if (IS_SINK(lev->typ)) {
             pline_The("plumbing connects it to the floor.");
-        }
-#endif
-        else if (IS_GRAVE(lev->typ)) {
+        } else if (IS_GRAVE(lev->typ)) {
             You("don't need a gravestone.  Yet.");
         } else if (IS_FOUNTAIN(lev->typ)) {
             You("could drink the %s...", hliquid("water"));
@@ -3682,8 +3675,8 @@ lookaround(void)
     if (Blind || flags.run == 0) {
         return;
     }
-    for (x = u.ux-1; x <= u.ux+1; x++)  {
-        for (y = u.uy-1; y <= u.uy+1; y++) {
+    for (x = u.ux - 1; x <= u.ux + 1; x++)  {
+        for (y = u.uy - 1; y <= u.uy + 1; y++) {
             /* Ignore squares that aren't within the boundary. */
             if (!isok(x, y)) {
                 continue;
@@ -3695,7 +3688,7 @@ lookaround(void)
             }
 
             /* Don't care about the square we're already on. */
-            if (x == u.ux && y == u.uy) {
+            if (u_at(x, y)) {
                 continue;
             }
 
@@ -3932,12 +3925,12 @@ monster_nearby(void)
     struct monst *mtmp;
 
     /* Also see the similar check in dochugw() in monmove.c */
-    for (x = u.ux-1; x <= u.ux+1; x++) {
-        for (y = u.uy-1; y <= u.uy+1; y++) {
+    for (x = u.ux - 1; x <= u.ux + 1; x++) {
+        for (y = u.uy - 1; y <= u.uy + 1; y++) {
             if (!isok(x, y)) {
                 continue;
             }
-            if (x == u.ux && y == u.uy) {
+            if (u_at(x, y)) {
                 continue;
             }
             if ((mtmp = m_at(x, y)) && check_interrupt(mtmp)) {

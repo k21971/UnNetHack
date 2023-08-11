@@ -89,7 +89,7 @@ amulet(void)
     for (mtmp = fmon; mtmp; mtmp = mtmp->nmon) {
         if (!DEADMONSTER(mtmp) && mtmp->iswiz && mtmp->msleeping && !rn2(40)) {
             mtmp->msleeping = 0;
-            if (distu(mtmp->mx, mtmp->my) > 2) {
+            if (!next2u(mtmp->mx, mtmp->my)) {
                 You(
                     "get the creepy feeling that somebody noticed your taking the Amulet."
                     );
@@ -120,7 +120,7 @@ mon_has_special(struct monst *mtmp)
 
     for (otmp = mtmp->minvent; otmp; otmp = otmp->nobj) {
         if (otmp->otyp == AMULET_OF_YENDOR ||
-             is_quest_artifact(otmp) ||
+             any_quest_artifact(otmp) ||
              otmp->otyp == BELL_OF_OPENING ||
              otmp->otyp == CANDELABRUM_OF_INVOCATION ||
              otmp->otyp == SPE_BOOK_OF_THE_DEAD) {
@@ -170,7 +170,7 @@ mon_has_arti(struct monst *mtmp, short int otyp)
             if (otmp->otyp == otyp) {
                 return 1;
             }
-        } else if (is_quest_artifact(otmp)) {
+        } else if (any_quest_artifact(otmp)) {
             return 1;
         }
     }
@@ -206,7 +206,7 @@ on_ground(short int otyp)
             if (otmp->otyp == otyp) {
                 return otmp;
             }
-        } else if (is_quest_artifact(otmp)) {
+        } else if (any_quest_artifact(otmp)) {
             return otmp;
         }
     }
@@ -383,10 +383,10 @@ tactics(struct monst *mtmp)
         if (In_W_tower(mx, my, &u.uz) ||
             (mtmp->iswiz && !sx && !mon_has_amulet(mtmp))) {
             if (!rn2(3 + mtmp->mhp/10)) {
-                (void) rloc(mtmp, TRUE);
+                (void) rloc(mtmp, RLOC_MSG);
             }
         } else if (sx && (mx != sx || my != sy)) {
-            if (!mnearto(mtmp, sx, sy, TRUE)) {
+            if (!mnearto(mtmp, sx, sy, TRUE, RLOC_MSG)) {
                 /* couldn't move to the target spot for some reason,
                    so stay where we are (don't actually need rloc_to()
                    because mtmp is still on the map at <mx,my>... */
@@ -406,7 +406,7 @@ tactics(struct monst *mtmp)
 
     case STRAT_NONE: /* harass */
         if (!rn2(!mtmp->mflee ? 5 : 33)) {
-            mnexto(mtmp);
+            mnexto(mtmp, RLOC_MSG);
         }
         return 0;
 
@@ -421,9 +421,9 @@ tactics(struct monst *mtmp)
         if (!targ) { /* simply wants you to close */
             return 0;
         }
-        if ((u.ux == tx && u.uy == ty) || where == STRAT_PLAYER) {
+        if (u_at(tx, ty) || where == STRAT_PLAYER) {
             /* player is standing on it (or has it) */
-            mnexto(mtmp);
+            mnexto(mtmp, RLOC_MSG);
             return 0;
         }
         if (where == STRAT_GROUND) {
@@ -449,14 +449,14 @@ tactics(struct monst *mtmp)
             } else {
                 /* a monster is standing on it - cause some trouble */
                 if (!rn2(5)) {
-                    mnexto(mtmp);
+                    mnexto(mtmp, RLOC_MSG);
                 }
                 return 0;
             }
         } else {
             /* a monster has it - 'port beside it. */
             mx = mtmp->mx, my = mtmp->my;
-            if (!mnearto(mtmp, tx, ty, FALSE)) {
+            if (!mnearto(mtmp, tx, ty, FALSE, RLOC_MSG)) {
                 rloc_to(mtmp, mx, my); /* no room? stay put */
             }
             return 0;

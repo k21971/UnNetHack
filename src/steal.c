@@ -102,7 +102,7 @@ stealgold(struct monst *mtmp)
               (Levitation || Flying) ? "beneath" : "between", whose, what);
         if (!ygold || !rn2(5)) {
             if (!tele_restrict(mtmp)) {
-                (void) rloc(mtmp, TRUE);
+                (void) rloc(mtmp, RLOC_MSG);
             }
             monflee(mtmp, 0, FALSE, FALSE);
         }
@@ -120,7 +120,7 @@ stealgold(struct monst *mtmp)
         add_to_minv(mtmp, ygold);
         Your("purse feels lighter.");
         if (!tele_restrict(mtmp)) {
-            (void) rloc(mtmp, TRUE);
+            (void) rloc(mtmp, RLOC_MSG);
         }
         monflee(mtmp, 0, FALSE, FALSE);
         flags.botl = 1;
@@ -157,7 +157,7 @@ stealarm(void)
                        so we don't set mavenge bit here. */
                     monflee(mtmp, 0, FALSE, FALSE);
                     if (!tele_restrict(mtmp)) {
-                        (void) rloc(mtmp, TRUE);
+                        (void) rloc(mtmp, RLOC_MSG);
                     }
                     break;
                 }
@@ -553,60 +553,97 @@ mpickobj(struct monst *mtmp, struct obj *otmp)
     return freed_otmp;
 }
 
+static boolean
+is_stealable_item(struct obj *obj, struct monst *mtmp)
+{
+    /* the Wizard is not allowed to steal the player's quest artifact */
+    if (mtmp->iswiz && is_quest_artifact(obj)) {
+        return FALSE;
+    }
+
+    /* every other quest artifact is fine */
+    if (any_quest_artifact(obj)) {
+        return TRUE;
+    }
+
+    /* target common artifacts */
+    if (obj->oartifact) {
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
 /* called for AD_SAMU (the Wizard and quest nemeses) */
 void
 stealamulet(struct monst *mtmp)
 {
     char buf[BUFSZ];
-    struct obj *otmp = (struct obj *)0;
-    int real=0, fake=0;
+    struct obj *otmp = 0, *obj = 0;
+    int real = 0, fake = 0, n;
 
-    /* select the artifact to steal */
-    if (u.uhave.amulet) {
-        real = AMULET_OF_YENDOR;
-        fake = FAKE_AMULET_OF_YENDOR;
-    } else if (u.uhave.questart) {
+    /* target every quest artifact, not just current role's;
+       if hero has more than one, choose randomly so that player
+       can't use inventory ordering to influence the theft */
+    for (n = 0, obj = invent; obj; obj = obj->nobj) {
+        if (is_stealable_item(obj, mtmp)) {
+            ++n, otmp = obj;
+        }
+    }
+    if (n > 1) {
+        n = rnd(n);
         for (otmp = invent; otmp; otmp = otmp->nobj) {
-            if (is_quest_artifact(otmp)) {
+            if (is_stealable_item(otmp, mtmp) && !--n) {
                 break;
             }
         }
-        if (!otmp) {
-            return; /* should we panic instead? */
-        }
-    } else if (u.uhave.bell) {
-        real = BELL_OF_OPENING;
-        fake = BELL;
-    } else if (u.uhave.book) {
-        real = SPE_BOOK_OF_THE_DEAD;
-    } else if (u.uhave.menorah) {
-        real = CANDELABRUM_OF_INVOCATION;
-    } else {
-        return; /* you have nothing of special interest */
     }
 
     if (!otmp) {
+        /* if we didn't find any quest artifact, find another valuable item */
+        if (u.uhave.amulet) {
+            real = AMULET_OF_YENDOR;
+            fake = FAKE_AMULET_OF_YENDOR;
+        } else if (u.uhave.bell) {
+            real = BELL_OF_OPENING;
+            fake = BELL;
+        } else if (u.uhave.book) {
+            real = SPE_BOOK_OF_THE_DEAD;
+        } else if (u.uhave.menorah) {
+            real = CANDELABRUM_OF_INVOCATION;
+        } else {
+            return; /* you have nothing of special interest */
+
+        }
         /* If we get here, real and fake have been set up. */
-        for (otmp = invent; otmp; otmp = otmp->nobj) {
-            if (otmp->otyp == real || (otmp->otyp == fake && !mtmp->iswiz)) {
-                break;
+        for (n = 0, obj = invent; obj; obj = obj->nobj) {
+            if (obj->otyp == real || (obj->otyp == fake && !mtmp->iswiz)) {
+                ++n, otmp = obj;
+            }
+        }
+
+        if (n > 1) {
+            n = rnd(n);
+            for (otmp = invent; otmp; otmp = otmp->nobj) {
+                if ((otmp->otyp == real ||
+                     (otmp->otyp == fake && !mtmp->iswiz)) && !--n) {
+                    break;
+                }
             }
         }
     }
 
     if (otmp) { /* we have something to snatch */
-        /* take off outer gear if we're targetting [hypothetical]
+        /* take off outer gear if we're targeting [hypothetical]
            quest artifact suit, shirt, gloves, or rings */
         if ((otmp == uarm || otmp == uarmu) && uarmc) {
             remove_worn_item(uarmc, FALSE);
         }
-        if (otmp == uarmu && uarm) {
+        if (otmp == uarmu && uarm)
             remove_worn_item(uarm, FALSE);
-        }
         if ((otmp == uarmg || ((otmp == uright || otmp == uleft) && uarmg)) && uwep) {
             /* gloves are about to be unworn; unwield weapon(s) first */
-            if (u.twoweap) {
-                /* remove_worn_item(uswapwep) indirectly */
+            if (u.twoweap) { /* remove_worn_item(uswapwep) indirectly */
                 remove_worn_item(uswapwep, FALSE); /* clears u.twoweap */
             }
             remove_worn_item(uwep, FALSE);
@@ -615,7 +652,6 @@ stealamulet(struct monst *mtmp)
             /* calls Gloves_off() to handle wielded cockatrice corpse */
             remove_worn_item(uarmg, FALSE);
         }
-
         /* finally, steal the target item */
         if (otmp->owornmask) {
             remove_worn_item(otmp, TRUE);
@@ -628,7 +664,7 @@ stealamulet(struct monst *mtmp)
         (void) mpickobj(mtmp, otmp); /* could merge and free otmp but won't */
         pline("%s steals %s!", Monnam(mtmp), buf);
         if (can_teleport(mtmp->data) && !tele_restrict(mtmp)) {
-            (void) rloc(mtmp, TRUE);
+            (void) rloc(mtmp, RLOC_MSG);
         }
     }
 }

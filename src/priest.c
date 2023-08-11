@@ -256,7 +256,7 @@ priestini(
     int cnt;
 
     if (MON_AT(sx+1, sy)) {
-        (void) rloc(m_at(sx+1, sy), FALSE); /* insurance */
+        (void) rloc(m_at(sx+1, sy), RLOC_NOMSG); /* insurance */
     }
 
     priest = makemon(&mons[sanctum ? PM_HIGH_PRIEST : PM_ALIGNED_PRIEST], sx + 1, sy, MM_EPRI);
@@ -373,7 +373,7 @@ priestname(
     Strcat(pname, " of ");
     /* Astral Call bugfix */
     if (mon->data == &mons[PM_HIGH_PRIEST] && !Hallucination &&
-            Is_astralevel(&u.uz) && distu(mon->mx, mon->my) > 2) {
+            Is_astralevel(&u.uz) && !next2u(mon->mx, mon->my)) {
         Strcat(pname, rnd_gname(str2role((char*)urole.name.m)));
         Strcat(pname, "?");
     } else {
@@ -703,7 +703,7 @@ mk_roamer(struct permonst *ptr, aligntyp alignment, coordxy x, coordxy y, boolea
     boolean coaligned = (u.ualign.type == alignment);
 
     if (MON_AT(x, y)) {
-        (void) rloc(m_at(x, y), FALSE); /* insurance */
+        (void) rloc(m_at(x, y), RLOC_NOMSG); /* insurance */
     }
 
     if (!(roamer = makemon(ptr, x, y, MM_ADJACENTOK | MM_EMIN))) {
@@ -784,7 +784,7 @@ ghod_hitsu(struct monst *priest)
     ay = y = EPRI(priest)->shrpos.y;
     troom = &rooms[roomno - ROOMOFFSET];
 
-    if ((u.ux == x && u.uy == y) || !linedup(u.ux, u.uy, x, y, 1)) {
+    if (u_at(x, y) || !linedup(u.ux, u.uy, x, y, 1)) {
         if (IS_DOOR(levl[u.ux][u.uy].typ)) {
 
             if (u.ux == troom->lx - 1) {

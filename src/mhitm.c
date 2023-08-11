@@ -35,7 +35,7 @@ static int dieroll;
 static void
 noises(struct monst *magr, struct attack *mattk)
 {
-    boolean farq = (distu(magr->mx, magr->my) > 15);
+    boolean farq = (mdistu(magr) > 15);
 
     if (!Deaf && (farq != far_noise || moves - noisetime > 10)) {
         far_noise = farq;
@@ -585,11 +585,11 @@ mattackm(struct monst *magr, struct monst *mdef)
             /* avoid mysterious force message by not using tele_restrict() */
             if (canseemon(mdef)) {
                 pline("%s %s reality!", Monnam(mdef),
-                      level.flags.noteleport ? "tries to warp" : "warps");
+                      noteleport_level(mdef) ? "tries to warp" : "warps");
             }
-            if (!level.flags.noteleport) {
+            if (!noteleport_level(mdef)) {
                 coord mm;
-                rloc(magr, FALSE);
+                rloc(magr, RLOC_NOMSG);
                 enexto(&mm, magr->mx, magr->my, &mons[PM_URANIUM_IMP]);
                 rloc_to(mdef, mm.x, mm.y);
             }
@@ -1519,7 +1519,8 @@ post_stone: if (mdef->mhp > 0) {
                 Strcpy(mdef_Monnam, Monnam(mdef));
             }
             mdef->mstrategy &= ~STRAT_WAITFORU;
-            (void) rloc(mdef, TRUE);
+            (void) rloc(mdef, RLOC_NOMSG);
+            /* TODO: use RLOC_MSG instead? */
             if (vis && wasseen && !canspotmon(mdef) && mdef != u.usteed) {
                 pline("%s suddenly disappears!", mdef_Monnam);
             }
@@ -1722,7 +1723,8 @@ post_stone: if (mdef->mhp > 0) {
         }
         if (!tele_restrict(magr)) {
             boolean couldspot = canspotmon(magr);
-            (void) rloc(magr, TRUE);
+            (void) rloc(magr, RLOC_NOMSG);
+            /* TODO: use RLOC_MSG instead? */
             if (vis && couldspot && !canspotmon(magr)) {
                 pline("%s suddenly disappears!", buf);
             }
@@ -1811,7 +1813,8 @@ post_stone: if (mdef->mhp > 0) {
                 !tele_restrict(magr)) {
                 boolean couldspot = canspotmon(magr);
 
-                (void) rloc(magr, TRUE);
+                (void) rloc(magr, RLOC_NOMSG);
+                /* TODO: use RLOC_MSG instead? */
                 if (vis && couldspot && !canspotmon(magr)) {
                     pline("%s suddenly disappears!", buf);
                 }

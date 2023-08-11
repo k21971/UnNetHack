@@ -147,7 +147,7 @@ precheck(struct monst *mon, struct obj *obj)
             int range = couldsee(mon->mx, mon->my) ? (BOLT_LIM + 1) : (BOLT_LIM - 3);
 
             You_hear("a zap and an explosion %s.",
-                     (distu(mon->mx, mon->my) <= range * range) ? "nearby" : "in the distance");
+                     (mdistu(mon) <= range * range) ? "nearby" : "in the distance");
         }
         m_useup(mon, obj);
         mon->mhp -= dam;
@@ -170,8 +170,7 @@ mzapwand(struct monst *mtmp, struct obj *otmp, boolean self)
         /* 9 or 5 */
         int range = couldsee(mtmp->mx, mtmp->my) ? (BOLT_LIM + 1) : (BOLT_LIM - 3);
 
-        You_hear("a %s zap.",
-                (distu(mtmp->mx, mtmp->my) <= range * range) ? "nearby" : "distant");
+        You_hear("a %s zap.", (mdistu(mtmp) <= range * range) ?  "nearby" : "distant");
         otmp->known = 0;
     } else if (self) {
         pline("%s %s %sself with %s!", Monnam(mtmp),
@@ -193,7 +192,7 @@ mplayhorn(struct monst *mtmp, struct obj *otmp, boolean self)
         int range = couldsee(mtmp->mx, mtmp->my) ? (BOLT_LIM + 1) : (BOLT_LIM - 3);
 
         You_hear("a horn being played %s.",
-                 (distu(mtmp->mx, mtmp->my) <= range * range) ? "nearby" : "in the distance");
+                 (mdistu(mtmp) <= range * range) ? "nearby" : "in the distance");
         otmp->known = 0; /* hero doesn't know how many charges are left */
     } else {
         otmp->dknown = 1;
@@ -485,7 +484,7 @@ find_defensive(struct monst *mtmp)
             /* skip if it's hero's location
                or a diagonal spot and monster can't move diagonally
                or some other monster is there */
-            if ((xx == u.ux && yy == u.uy) ||
+            if (u_at(xx, yy) ||
                 (xx != x && yy != y && !diag_ok) ||
                 (level.monsters[xx][yy] && !(xx == x && yy == y))) {
                 continue;
@@ -591,8 +590,8 @@ find_defensive(struct monst *mtmp)
              * mean if the monster leaves the level, they'll know
              * about teleport traps.
              */
-            if (!level.flags.noteleport ||
-                !(mtmp->mtrapseen & (1 << (TELEP_TRAP-1)))) {
+            if (!noteleport_level(mtmp) ||
+                !(mtmp->mtrapseen & (1 << (TELEP_TRAP - 1)))) {
                 m.defensive = obj;
                 m.has_defense = (mon_has_amulet(mtmp))
                                 ? MUSE_WAN_TELEPORTATION
@@ -606,8 +605,8 @@ find_defensive(struct monst *mtmp)
                (!(mtmp->isshk && inhishop(mtmp))
                 && !mtmp->isgd && !mtmp->ispriest))) {
             /* see WAN_TELEPORTATION case above */
-            if (!level.flags.noteleport ||
-                !(mtmp->mtrapseen & (1 << (TELEP_TRAP-1)))) {
+            if (!noteleport_level(mtmp) ||
+                !(mtmp->mtrapseen & (1 << (TELEP_TRAP - 1)))) {
                 m.defensive = obj;
                 m.has_defense = MUSE_SCR_TELEPORTATION;
             }
@@ -727,8 +726,8 @@ mon_tele:
                 makeknown(how);
             }
             /* monster learns that teleportation isn't useful here */
-            if (level.flags.noteleport) {
-                mtmp->mtrapseen |= (1 << (TELEP_TRAP-1));
+            if (noteleport_level(mtmp)) {
+                mtmp->mtrapseen |= (1 << (TELEP_TRAP - 1));
             }
             return 2;
         }
@@ -742,7 +741,7 @@ mon_tele:
         if (oseen && how) {
             makeknown(how);
         }
-        (void) rloc(mtmp, FALSE);
+        (void) rloc(mtmp, RLOC_MSG);
         return 2;
     case MUSE_WAN_TELEPORTATION:
         zap_oseen = oseen;
@@ -750,8 +749,8 @@ mon_tele:
         m_using = TRUE;
         mbhit(mtmp, rn1(8, 6), mbhitm, bhito, otmp);
         /* monster learns that teleportation isn't useful here */
-        if (level.flags.noteleport) {
-            mtmp->mtrapseen |= (1 << (TELEP_TRAP-1));
+        if (noteleport_level(mtmp)) {
+            mtmp->mtrapseen |= (1 << (TELEP_TRAP - 1));
         }
         m_using = FALSE;
         return 2;
@@ -1150,7 +1149,7 @@ try_again:
     switch (rn2(8 + (difficulty > 3) + (difficulty > 6) +
                 (difficulty > 8))) {
     case 6: case 9:
-        if (level.flags.noteleport && ++trycnt < 2) {
+        if (noteleport_level(mtmp) && ++trycnt < 2) {
             goto try_again;
         }
         if (!rn2(3)) {
@@ -1416,7 +1415,7 @@ mbhitm(struct monst *mtmp, struct obj *otmp)
                     seemimic(mtmp);
                 }
             } else if (!tele_restrict(mtmp)) {
-                (void) rloc(mtmp, FALSE);
+                (void) rloc(mtmp, RLOC_MSG);
             }
         }
         break;
@@ -1475,7 +1474,7 @@ mbhit(
                 destroy_drawbridge(x, y);
             }
         }
-        if (bhitpos.x==u.ux && bhitpos.y==u.uy) {
+        if (u_at(bhitpos.x, bhitpos.y)) {
             (*fhitm)(&youmonst, obj);
             range -= 3;
         } else if (MON_AT(bhitpos.x, bhitpos.y)) {
@@ -1859,8 +1858,8 @@ find_misc(struct monst *mtmp)
                monster from attempting disarm every turn */
              uwep && !rn2(5) && obj == MON_WEP(mtmp) &&
             /* hero's location must be known and adjacent */
-             mtmp->mux == u.ux && mtmp->muy == u.uy &&
-             distu(mtmp->mx, mtmp->my) <= 2 &&
+             u_at(mtmp->mux, mtmp->muy) &&
+             next2u(mtmp->mx, mtmp->my) &&
             /* don't bother if it can't work (this doesn't
                prevent cursed weapons from being targetted) */
              (canletgo(uwep, "") || (u.twoweap && canletgo(uswapwep, "")))) {

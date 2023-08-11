@@ -683,7 +683,7 @@ deserted_shop(char *enterstring)
 
     for (x = r->lx; x <= r->hx; ++x) {
         for (y = r->ly; y <= r->hy; ++y) {
-            if (x == u.ux && y == u.uy) {
+            if (u_at(x, y)) {
                 continue;
             }
             if ((mtmp = m_at(x, y)) != 0) {
@@ -1077,6 +1077,45 @@ shop_keeper(char rmno)
     return shkp;
 }
 
+/* find the shopkeeper who owns 'obj'; needed to handle shared shop walls */
+struct monst *
+find_objowner(
+    struct obj *obj,
+    coordxy x, coordxy y) /* caller passes obj's location since obj->ox,oy
+                           * might be stale; don't update coordinates here
+                           * because if we're called during sanity checking
+                           * they shouldn't be modified */
+{
+    struct monst *shkp, *deflt_shkp = 0;
+
+    if (obj->where == OBJ_ONBILL) {
+        /* used up item; bill obj coordinates are useless and so are x,y */
+        for (shkp = next_shkp(fmon, TRUE); shkp;
+             shkp = next_shkp(shkp->nmon, TRUE))
+            if (onshopbill(obj, shkp, TRUE)) {
+                return shkp;
+            }
+    } else {
+        char *roomindx, *where = in_rooms(x, y, SHOPBASE);
+
+        /* conceptually object could be inside up to 4 rooms simultaneously;
+           in practice it will usually be one room but can sometimes be two;
+           check shk and bill for each room rather than just the first;
+           fallback to the first shk if obj isn't on the relevant bill(s) */
+        for (roomindx = where; *roomindx; ++roomindx) {
+            if ((shkp = shop_keeper(*roomindx)) != 0) {
+                if (onshopbill(obj, shkp, TRUE)) {
+                    return shkp;
+                }
+                if (!deflt_shkp) {
+                    deflt_shkp = shkp;
+                }
+            }
+        }
+    }
+    return deflt_shkp;
+}
+
 boolean
 tended_shop(struct mkroom *sroom)
 {
@@ -1111,6 +1150,14 @@ onbill(struct obj *obj, struct monst *shkp, boolean silent)
     }
 
     return (struct bill_x *)0;
+}
+
+/** used outside of shk.c when caller wants to know whether item is on bill
+   but doesn't need to know any details about the bill itself */
+boolean
+onshopbill(struct obj *obj, struct monst *shkp, boolean silent)
+{
+    return onbill(obj, shkp, silent) ? TRUE : FALSE;
 }
 
 /* check whether an object or any of its contents belongs to a shop */
@@ -1291,7 +1338,7 @@ home_shk(struct monst *shkp, boolean killkops)
 {
     coordxy x = ESHK(shkp)->shk.x, y = ESHK(shkp)->shk.y;
 
-    (void) mnearto(shkp, x, y, TRUE);
+    (void) mnearto(shkp, x, y, TRUE, RLOC_NOMSG);
     level.flags.has_shop = 1;
     if (killkops) {
 #ifdef KOPS
@@ -1505,7 +1552,7 @@ dopay(void)
     for (shkp = next_shkp(fmon, FALSE);
          shkp; shkp = next_shkp(shkp->nmon, FALSE)) {
         sk++;
-        if (ANGRY(shkp) && distu(shkp->mx, shkp->my) <= 2) {
+        if (ANGRY(shkp) && next2u(shkp->mx, shkp->my)) {
             nxtm = shkp;
         }
         if (canspotmon(shkp)) {
@@ -1545,7 +1592,7 @@ dopay(void)
                 break;
             }
         }
-        if (shkp != resident && distu(shkp->mx, shkp->my) > 2) {
+        if (shkp != resident && !next2u(shkp->mx, shkp->my)) {
             pline("%s is not near enough to receive your payment.",
                   Monnam(shkp));
             return 0;
@@ -1567,7 +1614,7 @@ dopay(void)
             pline("Try again...");
             return 0;
         }
-        if (u.ux == cx && u.uy == cy) {
+        if (u_at(cx, cy)) {
             You("are generous to yourself.");
             return 0;
         }
@@ -1585,7 +1632,7 @@ dopay(void)
                   Monnam(mtmp));
             return 0;
         }
-        if (mtmp != resident && distu(mtmp->mx, mtmp->my) > 2) {
+        if (mtmp != resident && !next2u(mtmp->mx, mtmp->my)) {
             pline("%s is too far to receive your payment.",
                   Shknam(mtmp));
             return 0;
@@ -2148,7 +2195,7 @@ inherits(struct monst *shkp, int numsk, int croaked, boolean silently)
         if (helpless(shkp)) {
             Strcat(takes, "wakes up and ");
         }
-        if (distu(shkp->mx, shkp->my) > 2) {
+        if (!next2u(shkp->mx, shkp->my)) {
             Strcat(takes, "comes and ");
         }
         Strcat(takes, "takes");
@@ -2208,7 +2255,7 @@ set_repo_loc(struct monst *shkp)
         or entry spot, then your gear gets dumped all the way inside */
     if (*u.ushops != eshkp->shoproom ||
         IS_DOOR(levl[u.ux][u.uy].typ) ||
-        (u.ux == eshkp->shk.x && u.uy == eshkp->shk.y)) {
+        u_at(eshkp->shk.x, eshkp->shk.y)) {
         /* shk.x,shk.y is the position immediately in
          * front of the door -- move in one more space
          */
@@ -3758,7 +3805,7 @@ shkcatch(struct obj *obj, coordxy x, coordxy y)
         dist2(shkp->mx, shkp->my, x, y) < 3 &&
         /* if it is the shk's pos, you hit and anger him */
         (shkp->mx != x || shkp->my != y)) {
-        if (mnearto(shkp, x, y, TRUE) == 2 && !Deaf && !muteshk(shkp)) {
+        if (mnearto(shkp, x, y, TRUE, RLOC_NOMSG) == 2 && !Deaf && !muteshk(shkp)) {
             verbalize("Out of my way, scum!");
         }
         if (cansee(x, y)) {
@@ -4212,7 +4259,7 @@ shk_move(struct monst *shkp)
         if ((!Is_blackmarket(&u.uz) && (Invis || u.usteed) && !inside_shop(u.ux, u.uy))) {
             avoid = FALSE;
         } else {
-            uondoor = (u.ux == eshkp->shd.x && u.uy == eshkp->shd.y);
+            uondoor = u_at(eshkp->shd.x, eshkp->shd.y);
             if (uondoor) {
                 badinv = (!Is_blackmarket(&u.uz) &&
                           (carrying(PICK_AXE) ||
@@ -4338,10 +4385,10 @@ shopdig(int fall)
             return;
 #endif
         }
-        if (distu(shkp->mx, shkp->my) > 2) {
-            mnexto(shkp);
+        if (!next2u(shkp->mx, shkp->my)) {
+            mnexto(shkp, RLOC_MSG);
             /* for some reason the shopkeeper can't come next to you */
-            if (distu(shkp->mx, shkp->my) > 2) {
+            if (!next2u(shkp->mx, shkp->my)) {
                 if (lang == 2) {
                     pline("%s curses you in anger and frustration!",
                           shkname(shkp));
@@ -4470,7 +4517,7 @@ pay_for_damage(const char *dmgstr, boolean cant_mollify)
             if (!inhishop(tmp_shk)) {
                 continue;
             }
-            shk_distance = distu(tmp_shk->mx, tmp_shk->my);
+            shk_distance = mdistu(tmp_shk);
             if (shk_distance > nearest_shk) {
                 continue;
             }
@@ -4519,7 +4566,7 @@ pay_for_damage(const char *dmgstr, boolean cant_mollify)
         if (um_dist(shkp->mx, shkp->my, 1) &&
            !um_dist(shkp->mx, shkp->my, 3)) {
             pline("%s leaps towards you!", Shknam(shkp));
-            mnexto(shkp);
+            mnexto(shkp, RLOC_NOMSG);
         }
         pursue = um_dist(shkp->mx, shkp->my, 1);
         if (pursue) {
@@ -4549,7 +4596,7 @@ pay_for_damage(const char *dmgstr, boolean cant_mollify)
                 growl(shkp);
             }
         }
-        (void) mnearto(shkp, x, y, TRUE);
+        (void) mnearto(shkp, x, y, TRUE, RLOC_MSG);
     }
 
     if ((um_dist(x, y, 1) && !uinshp) || cant_mollify ||

@@ -880,10 +880,8 @@ extern void gush(int, int, genericptr_t);
 extern void dryup(coordxy, coordxy, boolean);
 extern void drinkfountain(void);
 extern void dipfountain(struct obj *);
-#ifdef SINKS
 extern void breaksink(coordxy, coordxy);
 extern void drinksink(void);
-#endif
 
 /* ### hack.c ### */
 
@@ -1527,9 +1525,9 @@ extern void killed(struct monst *);
 extern void xkilled(struct monst *, int);
 extern void mon_to_stone(struct monst*);
 extern void m_into_limbo(struct monst *);
-extern void mnexto(struct monst *);
+extern void mnexto(struct monst *, unsigned);
 extern void maybe_mnexto(struct monst *);
-extern int mnearto(struct monst *, coordxy, coordxy, boolean);
+extern int mnearto(struct monst *, coordxy, coordxy, boolean, unsigned);
 extern void poisontell(int);
 extern void poisoned(const char *, int, const char *, int);
 extern void m_respond(struct monst *);
@@ -1541,6 +1539,7 @@ extern void seemimic(struct monst *);
 extern void rescham(void);
 extern void restartcham(void);
 extern void restore_cham(struct monst *);
+extern void maybe_unhide_at(coordxy, coordxy);
 extern boolean hideunder(struct monst *);
 extern void mon_animal_list(boolean);
 extern boolean validvamp(struct monst *, int *, int);
@@ -1605,6 +1604,7 @@ extern boolean is_fleshy(const struct permonst *);
 
 extern boolean itsstuck(struct monst *);
 extern boolean mb_trapped(struct monst *);
+extern void mon_track_clear(struct monst *);
 extern boolean mon_has_key(struct monst *, boolean);
 extern void mon_regen(struct monst *, boolean);
 extern int dochugw(struct monst *);
@@ -1621,6 +1621,7 @@ extern boolean can_ooze(struct monst *);
 extern boolean can_fog(struct monst *);
 extern boolean should_displace(struct monst *, coord *, long *, int, coordxy, coordxy);
 extern boolean undesirable_disp(struct monst *, coordxy, coordxy);
+extern boolean can_hide_under_obj(struct obj *);
 
 /* ### monst.c ### */
 
@@ -2347,7 +2348,9 @@ extern boolean same_price(struct obj *, struct obj *);
 extern void shopper_financial_report(void);
 extern int inhishop(struct monst *);
 extern struct monst *shop_keeper(char);
+extern struct monst *find_objowner(struct obj *, coordxy x, coordxy y);
 extern boolean tended_shop(struct mkroom *);
+extern boolean onshopbill(struct obj *, struct monst *, boolean);
 extern boolean is_unpaid(struct obj *);
 extern void delete_contents(struct obj *);
 extern void obfree(struct obj *, struct obj *);
@@ -2512,6 +2515,7 @@ extern void sys_early_init(void);
 
 /* ### teleport.c ### */
 
+extern boolean noteleport_level(struct monst *);
 extern boolean goodpos(coordxy, coordxy, struct monst *, unsigned);
 extern boolean enexto(coord *, coordxy, coordxy, struct permonst *);
 extern boolean enexto_core(coord *, coordxy, coordxy, struct permonst *, unsigned);
@@ -2528,7 +2532,8 @@ extern void domagicportal(struct trap *);
 extern void tele_trap(struct trap *);
 extern void level_tele_trap(struct trap *, unsigned);
 extern void rloc_to(struct monst *, coordxy, coordxy);
-extern boolean rloc(struct monst *, boolean);
+extern void rloc_to_flag(struct monst *, coordxy, coordxy, unsigned);
+extern boolean rloc(struct monst *, unsigned);
 extern boolean tele_restrict(struct monst *);
 extern void mtele_trap(struct monst *, struct trap *, int);
 extern int mlevel_tele_trap(struct monst *, struct trap *, boolean, int);

@@ -291,10 +291,10 @@ doit:
             if (mon->mx != x || mon->my != y) {
                 (void) unmap_invisible(x, y);
                 pline("%s %s, %s evading your %skick.", Monnam(mon),
-                      (!level.flags.noteleport && can_teleport(mon->data)) ? "teleports" :
+                      (can_teleport(mon->data) && !noteleport_level(mon)) ? "teleports" :
                        is_floater(mon->data) ? "floats" :
                        is_flyer(mon->data) ? "swoops" :
-                       (nolimbs(mon->data) || slithy(mon->data)) ?  "slides" : "jumps",
+                       (nolimbs(mon->data) || slithy(mon->data)) ? "slides" : "jumps",
                       clumsy ? "easily" : "nimbly",
                       clumsy ? "clumsy " : "");
                 (void) passive(mon, uarmf, FALSE, 1, AT_KICK, FALSE);
@@ -849,13 +849,9 @@ kickstr(char *buf, const char *kickobjnam)
         what = "a fountain";
     } else if (IS_GRAVE(maploc->typ)) {
         what = "a headstone";
-    }
-#ifdef SINKS
-    else if (IS_SINK(maploc->typ)) {
+    } else if (IS_SINK(maploc->typ)) {
         what = "a sink";
-    }
-#endif
-    else if (IS_ALTAR(maploc->typ)) {
+    } else if (IS_ALTAR(maploc->typ)) {
         what = "an altar";
     } else if (IS_DRAWBRIDGE(maploc->typ)) {
         what = "a drawbridge";
@@ -1327,7 +1323,7 @@ dokick(void)
             }
             return 1;
         }
-#ifdef SINKS
+
         if (IS_SINK(maploc->typ)) {
             int gend = poly_gender();
             short washerndx = (gend == 1 || (gend == 2 && rn2(2))) ?
@@ -1387,7 +1383,7 @@ dokick(void)
             }
             goto ouch;
         }
-#endif
+
         if (maploc->typ == STAIRS || maploc->typ == LADDER ||
             IS_STWALL(maploc->typ) ||
             IS_ANY_ICEWALL(maploc->typ)) {

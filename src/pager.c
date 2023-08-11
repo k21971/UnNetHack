@@ -208,7 +208,7 @@ object_from_map(int glyph, coordxy x, coordxy y, struct obj **obj_p)
     /* if located at adjacent spot, mark it as having been seen up close
        (corpse type will be known even if dknown is 0, so we don't need a
        touch check for cockatrice corpse--we're looking without touching) */
-    if (otmp && distu(x, y) <= 2 && !Blind && !Hallucination &&
+    if (otmp && next2u(x, y) && !Blind && !Hallucination &&
         /* redundant: we only look for an object which matches current
            glyph among floor and buried objects; when !Blind, any buried
            object's glyph will have been replaced by whatever is present
@@ -403,7 +403,7 @@ lookat(coordxy x, coordxy y, char *buf, char *monbuf)
 
     buf[0] = monbuf[0] = '\0';
     glyph = glyph_at(x, y);
-    if (u.ux == x && u.uy == y && canspotself() &&
+    if (u_at(x, y) && canspotself() &&
          !(iflags.save_uswallow &&
            glyph == mon_to_glyph(u.ustuck)) &&
          (!iflags.terrainmode || (iflags.terrainmode & TER_MON) != 0)) {
@@ -515,7 +515,7 @@ lookat(coordxy x, coordxy y, char *buf, char *monbuf)
             } else if (Underwater && !Is_waterlevel(&u.uz)) {
                 /* "unknown" == previously mapped but not visible when
                    submerged; better terminology appreciated... */
-                Strcpy(buf, (distu(x, y) <= 2) ? "land" : "unknown");
+                Strcpy(buf, (next2u(x, y)) ? "land" : "unknown");
                 break;
             } else if (levl[x][y].typ == STONE || levl[x][y].typ == SCORR) {
                 Strcpy(buf, "stone");
@@ -1843,7 +1843,7 @@ do_screen_description(coord cc, boolean looked, glyph_t sym, char *out_str, cons
     x_str = 0;
     if (!looked) {
         ; /* skip special handling */
-    } else if (((u.uswallow || submerged) && distu(cc.x, cc.y) > 2) ||
+    } else if (((u.uswallow || submerged) && !next2u(cc.x, cc.y)) ||
                /* detection showing some category, so mostly background */
                (((iflags.terrainmode & (TER_DETECT | TER_MAP)) == TER_DETECT) &&
                 (glyph == cmap_to_glyph(S_stone)))) {
@@ -1889,7 +1889,7 @@ do_screen_description(coord cc, boolean looked, glyph_t sym, char *out_str, cons
         /* handle '@' as a special case if it refers to you and you're
            playing a character which isn't normally displayed by that
            symbol; firstmatch is assumed to already be set for '@' */
-        if ((looked ? (sym == monsyms[S_HUMAN] && cc.x == u.ux && cc.y == u.uy) :
+        if ((looked ? (sym == monsyms[S_HUMAN] && u_at(cc.x, cc.y)) :
                       (sym == def_monsyms[S_HUMAN] && !iflags.showrace)) &&
              !(Race_if(PM_HUMAN) || Race_if(PM_ELF)) && !Upolyd) {
             found += append_str(out_str, "you"); /* tack on "or you" */
@@ -2583,7 +2583,7 @@ look_all(boolean nearby,  /* True => within BOLTLIM, False => entire map */
 
                     bhitpos.x = x; /* [is this actually necessary?] */
                     bhitpos.y = y;
-                    if (x == u.ux && y == u.uy && canspotself()) {
+                    if (u_at(x, y) && canspotself()) {
                         (void) self_lookat(lookbuf);
                         count++;
                     } else if ((mtmp = m_at(x, y)) != 0) {

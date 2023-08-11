@@ -611,7 +611,7 @@ minliquid(struct monst *mtmp)
             /* not fair...?  hero doesn't automatically teleport away
                from lava, just from water */
             if (can_teleport(mtmp->data) && !tele_restrict(mtmp)) {
-                if (rloc(mtmp, TRUE)) {
+                if (rloc(mtmp, RLOC_MSG)) {
                     return 0;
                 }
             }
@@ -647,7 +647,7 @@ minliquid(struct monst *mtmp)
             if (!DEADMONSTER(mtmp)) {
                 (void) fire_damage_chain(mtmp->minvent, FALSE, FALSE,
                                    mtmp->mx, mtmp->my);
-                (void) rloc(mtmp, FALSE);
+                (void) rloc(mtmp, RLOC_MSG);
                 return 0;
             }
             return 1;
@@ -662,8 +662,9 @@ minliquid(struct monst *mtmp)
             /* like hero with teleport intrinsic or spell, teleport away
                if possible */
             if (can_teleport(mtmp->data) && !tele_restrict(mtmp)) {
-                if (rloc(mtmp, TRUE))
+                if (rloc(mtmp, RLOC_MSG)) {
                     return 0;
+                }
             }
             if (cansee(mtmp->mx, mtmp->my)) {
                 pline("%s %s.", Monnam(mtmp),
@@ -682,7 +683,7 @@ minliquid(struct monst *mtmp)
             }
             if (!DEADMONSTER(mtmp)) {
                 water_damage_chain(mtmp->minvent, FALSE);
-                if (!rloc(mtmp, TRUE)) {
+                if (!rloc(mtmp, RLOC_NOMSG)) {
                     deal_with_overcrowding(mtmp);
                 }
                 return 0;
@@ -869,10 +870,12 @@ movemon(void)
             if (M_AP_TYPE(mtmp) == M_AP_FURNITURE || M_AP_TYPE(mtmp) == M_AP_OBJECT) {
                 continue;
             }
-            if(mtmp->mundetected) continue;
+            if (mtmp->mundetected) {
+                continue;
+            }
         } else if (mtmp->data->mlet == S_EEL &&
                 !mtmp->mundetected &&
-                (mtmp->mflee || distu(mtmp->mx, mtmp->my) > 2) &&
+                (mtmp->mflee || !next2u(mtmp->mx, mtmp->my)) &&
                 !canseemon(mtmp) &&
                 !rn2(4)) {
             /* some eels end up stuck in isolated pools, where they
@@ -1502,9 +1505,9 @@ nexttry:    /* eels prefer the water, but if there is no water nearby,
                     if(!(flag & ALLOW_SSM)) continue;
                     info[cnt] |= ALLOW_SSM;
                 }
-                if ((nx == u.ux && ny == u.uy) ||
+                if (u_at(nx, ny) ||
                     (nx == mon->mux && ny == mon->muy)) {
-                    if (nx == u.ux && ny == u.uy) {
+                    if (u_at(nx, ny)) {
                         /* If it's right next to you, it found you,
                          * displaced or no.  We must set mux and muy
                          * right now, so when we return we can tell
@@ -2661,10 +2664,11 @@ monkilled(struct monst *mdef, const char *fltxt, int how)
                 (Hallucination ? "plaid" : "sad"));
         }
     }
+    return;
 }
 
 void
-unstuck(struct monst *mtmp)
+unstuck(struct monst* mtmp)
 {
     if (u.ustuck == mtmp) {
         if (u.uswallow) {
@@ -3131,10 +3135,9 @@ elemental_clog(struct monst *mon)
 /* make monster mtmp next to you (if possible);
    might place monst on far side of a wall or boulder */
 void
-mnexto(struct monst *mtmp)
+mnexto(struct monst *mtmp, unsigned int rlocflags)
 {
     coord mm;
-    boolean couldspot = canspotmon(mtmp);
 
     if (mtmp == u.usteed) {
         /* Keep your steed in sync with you instead */
@@ -3148,13 +3151,7 @@ mnexto(struct monst *mtmp)
         return;
     }
 
-    rloc_to(mtmp, mm.x, mm.y);
-    if (!in_mklev && (mtmp->mstrategy & STRAT_APPEARMSG)) {
-        mtmp->mstrategy &= ~STRAT_APPEARMSG; /* one chance only */
-        if (!couldspot && canspotmon(mtmp)) {
-            pline("%s suddenly %s!", Amonnam(mtmp), !Blind ? "appears" : "arrives");
-        }
-    }
+    rloc_to_flag(mtmp, mm.x, mm.y, rlocflags);
 }
 
 static void
@@ -3207,7 +3204,8 @@ mnearto(
     struct monst *mtmp,
     coordxy x,
     coordxy y,
-    boolean move_other) /**< make sure mtmp gets to x, y! so move m_at(x, y) */
+    boolean move_other, /* make sure mtmp gets to x, y! so move m_at(x, y) */
+    unsigned int rlocflags)
 {
     struct monst *othermon = (struct monst *)0;
     coordxy newx, newy;
@@ -3250,11 +3248,11 @@ mnearto(
         newy = mm.y;
     }
 
-    rloc_to(mtmp, newx, newy);
+    rloc_to_flag(mtmp, newx, newy, rlocflags);
 
     if (move_other && othermon) {
         res = 2; /* moving another monster out of the way */
-        if (!mnearto(othermon, x, y, FALSE)) {
+        if (!mnearto(othermon, x, y, FALSE, rlocflags)) {
             /* no 'move_other' this time */
             deal_with_overcrowding(othermon);
         }
@@ -3612,12 +3610,11 @@ restrap(struct monst *mtmp)
 {
     struct trap *t;
 
-
     if (mtmp->mcan || M_AP_TYPE(mtmp) || cansee(mtmp->mx, mtmp->my) ||
         rn2(3) || mtmp == u.ustuck ||
         /* can't hide while trapped except in pits */
         (mtmp->mtrapped && (t = t_at(mtmp->mx, mtmp->my)) && !is_pit(t->ttyp)) ||
-        (sensemon(mtmp) && distu(mtmp->mx, mtmp->my) <= 2)) {
+        (sensemon(mtmp) && next2u(mtmp->mx, mtmp->my))) {
         return FALSE;
     }
 
@@ -3630,6 +3627,33 @@ restrap(struct monst *mtmp)
     }
 
     return FALSE;
+}
+
+/* reveal a hiding monster at x,y, either under nonexistent object,
+   or an eel out of water. */
+void
+maybe_unhide_at(coordxy x, coordxy y)
+{
+    struct monst *mtmp;
+    boolean undetected = FALSE, trapped = FALSE;
+
+    if ((mtmp = m_at(x, y)) != (struct monst *) 0) {
+        undetected = mtmp->mundetected;
+        trapped = mtmp->mtrapped;
+    } else if (u_at(x, y)) {
+        mtmp = &youmonst;
+        undetected = u.uundetected;
+        trapped = u.utrap;
+    } else {
+        return;
+    }
+
+    if (undetected &&
+        ((hides_under(mtmp->data) &&
+          (!OBJ_AT(x, y) || trapped || !can_hide_under_obj(level.objects[x][y]))) ||
+         (mtmp->data->mlet == S_EEL && !is_pool(x, y)))) {
+        (void) hideunder(mtmp);
+    }
 }
 
 /* monster/hero tries to hide under something at the current location */
@@ -3771,7 +3795,8 @@ decide_to_shapeshift(struct monst *mon, int shiftflags)
             } else if (mon->data == &mons[PM_FOG_CLOUD] &&
                        mon->mhp == mon->mhpmax &&
                        !rn2(4) &&
-                       (!canseemon(mon) || distu(mon->mx, mon->my) > BOLT_LIM * BOLT_LIM)) {
+                       (!canseemon(mon) ||
+                        mdistu(mon) > BOLT_LIM * BOLT_LIM)) {
                 /* if a fog cloud, maybe change to wolf or vampire bat;
                    those are more likely to take damage--at least when
                    tame--and then switch back to vampire; they'll also
@@ -3784,7 +3809,8 @@ decide_to_shapeshift(struct monst *mon, int shiftflags)
             }
         } else {
             if (mon->mhp >= 9 * mon->mhpmax / 10 && !rn2(6) &&
-                (!canseemon(mon) || distu(mon->mx, mon->my) > BOLT_LIM * BOLT_LIM)) {
+                (!canseemon(mon) ||
+                 mdistu(mon) > BOLT_LIM * BOLT_LIM)) {
                 dochng = TRUE; /* 'ptr' stays Null */
             }
         }
@@ -4548,8 +4574,11 @@ angry_guards(boolean silent)
            && mtmp->mpeaceful) {
             ct++;
             if (cansee(mtmp->mx, mtmp->my) && mtmp->mcanmove) {
-                if (distu(mtmp->mx, mtmp->my) == 2) nct++;
-                else sct++;
+                if (next2u(mtmp->mx, mtmp->my)) {
+                    nct++;
+                } else {
+                    sct++;
+                }
             }
             if (mtmp->msleeping || mtmp->mfrozen) {
                 slct++;

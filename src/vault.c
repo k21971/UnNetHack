@@ -64,10 +64,10 @@ clear_fcorr(struct monst *grd, boolean forceshow)
            egrd->gddone) {
             forceshow = TRUE;
         }
-        if ((u.ux == fcx && u.uy == fcy && !DEADMONSTER(grd))
-           || (!forceshow && couldsee(fcx, fcy))
-           || (Punished && !carried(uball)
-               && uball->ox == fcx && uball->oy == fcy)) {
+        if ((u_at(fcx, fcy) && !DEADMONSTER(grd)) ||
+            (!forceshow && couldsee(fcx, fcy)) ||
+            (Punished && !carried(uball) && uball->ox == fcx &&
+             uball->oy == fcy)) {
             return FALSE;
         }
 
@@ -78,7 +78,7 @@ clear_fcorr(struct monst *grd, boolean forceshow)
                 if (mtmp->mtame) {
                     yelp(mtmp);
                 }
-                (void) rloc(mtmp, FALSE);
+                (void) rloc(mtmp, RLOC_MSG);
             }
         }
         lev = &levl[fcx][fcy];
@@ -384,14 +384,14 @@ invault(void)
                 y += dy;
             }
         }
-        if (x == u.ux && y == u.uy) {
-            if (levl[x+1][y].typ == HWALL || levl[x+1][y].typ == DOOR) {
+        if (u_at(x, y)) {
+            if (levl[x + 1][y].typ == HWALL || levl[x + 1][y].typ == DOOR) {
                 x = x + 1;
-            } else if (levl[x-1][y].typ == HWALL || levl[x-1][y].typ == DOOR) {
+            } else if (levl[x - 1][y].typ == HWALL || levl[x - 1][y].typ == DOOR) {
                 x = x - 1;
-            } else if (levl[x][y+1].typ == VWALL || levl[x][y+1].typ == DOOR) {
+            } else if (levl[x][y + 1].typ == VWALL || levl[x][y + 1].typ == DOOR) {
                 y = y + 1;
-            } else if (levl[x][y-1].typ == VWALL || levl[x][y-1].typ == DOOR) {
+            } else if (levl[x][y - 1].typ == VWALL || levl[x][y - 1].typ == DOOR) {
                 y = y - 1;
             } else {
                 return;
@@ -612,7 +612,7 @@ wallify_vault(struct monst *grd)
                     if (mon->mtame) {
                         yelp(mon);
                     }
-                    (void) rloc(mon, FALSE);
+                    (void) rloc(mon, RLOC_ERR);
                 }
                 if ((gold = g_at(x, y)) != 0) {
                     move_gold(gold, EGD(grd)->vroom);
@@ -665,12 +665,14 @@ wallify_vault(struct monst *grd)
 static void
 gd_mv_monaway(struct monst *grd, int nx, int ny)
 {
-    if (MON_AT(nx, ny) && !(nx == grd->mx && ny == grd->my)) {
+    struct monst *mtmp = m_at(nx, ny);
+
+    if (mtmp && mtmp != grd) {
         if (!Deaf) {
             verbalize("Out of my way, scum!");
         }
-        if (!rloc(m_at(nx, ny), FALSE) || MON_AT(nx, ny)) {
-            m_into_limbo(m_at(nx, ny));
+        if (!rloc(mtmp, RLOC_ERR | RLOC_MSG) || MON_AT(nx, ny)) {
+            m_into_limbo(mtmp);
         }
     }
 }
@@ -684,7 +686,7 @@ gd_pick_corridor_gold(struct monst *grd, int goldx, int goldy)
     coord newcc, bestcc;
     int gdelta, newdelta, bestdelta, tryct,
         guardx = grd->mx, guardy = grd->my;
-    boolean under_u = (goldx == u.ux && goldy == u.uy),
+    boolean under_u = u_at(goldx, goldy),
             see_it = cansee(goldx, goldy);
 
     if (under_u) {
@@ -809,7 +811,7 @@ gd_move(struct monst *grd)
         if (!u_in_vault
             && (grd_in_vault ||
                 (in_fcorridor(grd, grd->mx, grd->my) && !in_fcorridor(grd, u.ux, u.uy)))) {
-            (void) rloc(grd, TRUE);
+            (void) rloc(grd, RLOC_MSG);
             wallify_vault(grd);
             if (!in_fcorridor(grd, grd->mx, grd->my)) {
                 (void) clear_fcorr(grd, TRUE);
@@ -853,7 +855,7 @@ gd_move(struct monst *grd)
                 if (!Deaf) {
                     verbalize("You've been warned, knave!");
                 }
-                mnexto(grd);
+                mnexto(grd, RLOC_NOMSG);
                 levl[m][n].typ = egrd->fakecorr[0].ftyp;
                 newsym(m, n);
                 grd->mpeaceful = 0;
@@ -870,7 +872,7 @@ gd_move(struct monst *grd)
             if (u_carry_gold) { /* player teleported */
                 m = grd->mx;
                 n = grd->my;
-                (void) rloc(grd, TRUE);
+                (void) rloc(grd, RLOC_MSG);
                 levl[m][n].typ = egrd->fakecorr[0].ftyp;
                 newsym(m, n);
                 grd->mpeaceful = 0;
@@ -1157,7 +1159,7 @@ paygd(boolean silently)
             mongone(grd);
             return;
         }
-        mnexto(grd);
+        mnexto(grd, RLOC_NOMSG);
         if (!silently) {
             pline("%s remits your gold to the vault.", Monnam(grd));
         }

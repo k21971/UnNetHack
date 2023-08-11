@@ -75,7 +75,7 @@ mkcavepos(coordxy x, coordxy y, int dist, boolean waslit, boolean rockit)
         }
         if ((mtmp = m_at(x, y)) != 0) { /* make sure crucial monsters survive */
             if (!passes_walls(mtmp->data)) {
-                (void) rloc(mtmp, TRUE);
+                (void) rloc(mtmp, RLOC_NOMSG);
             }
         }
     } else if (lev->typ == ROOM) {
@@ -278,8 +278,8 @@ dig(void)
     /* or perhaps you teleported away */
     if (u.uswallow || !uwep || (!ispick && !is_axe(uwep)) ||
         !on_level(&digging.level, &u.uz) ||
-        ((digging.down ? (dpx != u.ux || dpy != u.uy)
-          : (distu(dpx, dpy) > 2)))) {
+        ((digging.down ? (dpx != u.ux || dpy != u.uy) :
+          !next2u(dpx, dpy)))) {
         return 0;
     }
 
@@ -642,7 +642,7 @@ digactualhole(coordxy x, coordxy y, struct monst *madeby, int ttyp)
     struct monst *mtmp = m_at(x, y); /* may be madeby */
     boolean madeby_u = (madeby == BY_YOU);
     boolean madeby_obj = (madeby == BY_OBJECT);
-    boolean at_u = (x == u.ux) && (y == u.uy);
+    boolean at_u = u_at(x, y);
     boolean wont_fall = Levitation || Flying;
 
     if (at_u && u.utrap) {
@@ -660,11 +660,9 @@ digactualhole(coordxy x, coordxy y, struct monst *madeby, int ttyp)
         SET_FOUNTAIN_WARNED(x, y);       /* force dryup */
         dryup(x, y, madeby_u);
         return;
-#ifdef SINKS
     } else if (IS_SINK(lev->typ)) {
         breaksink(x, y);
         return;
-#endif
     } else if (lev->typ == DRAWBRIDGE_DOWN ||
                (is_drawbridge_wall(x, y) >= 0)) {
         coordxy bx = x, by = y;
@@ -856,7 +854,7 @@ digactualhole(coordxy x, coordxy y, struct monst *madeby, int ttyp)
 void
 liquid_flow(coordxy x, coordxy y, schar typ, struct trap *ttmp, const char *fillmsg)
 {
-    boolean u_spot = (x == u.ux && y == u.uy);
+    boolean u_spot = u_at(x, y);
 
     if (ttmp) {
         (void) delfloortrap(ttmp);
@@ -1316,8 +1314,8 @@ use_pick_axe2(struct obj *obj)
                 !on_level(&digging.level, &u.uz) || digging.down) {
                 if (flags.autodig &&
                     dig_target == DIGTYP_ROCK && !digging.down &&
-                    digging.pos.x == u.ux &&
-                    digging.pos.y == u.uy &&
+                    u_at(digging.pos.x, digging.pos.y) &&
+                    digging.pos.x == u.ux && digging.pos.y == u.uy &&
                     (moves <= digging.lastdigtime+2 &&
                      moves >= digging.lastdigtime)) {
                     /* avoid messages if repeated autodigging */
@@ -1952,9 +1950,9 @@ pit_flow(struct trap *trap, schar filltyp)
         levl[t.tx][t.ty].typ = filltyp;
         levl[t.tx][t.ty].flags = 0;
         liquid_flow(t.tx, t.ty, filltyp, trap,
-                    (t.tx == u.ux && t.ty == u.uy)
-                    ? "Suddenly %s flows in from the adjacent pit!"
-                    : (char *) 0);
+                    u_at(t.tx, t.ty) ?
+                    "Suddenly %s flows in from the adjacent pit!" :
+                    (char *) 0);
         for (idx = 0; idx < 8; ++idx) {
             if (t.conjoined & (1 << idx)) {
                 int x, y;
@@ -2287,7 +2285,8 @@ rot_corpse(anything *arg, long int timeout UNUSED)
         if (mtmp && !OBJ_AT(x, y) && mtmp->mundetected &&
             hides_under(mtmp->data)) {
             mtmp->mundetected = 0;
-        } else if (x == u.ux && y == u.uy && u.uundetected && hides_under(youmonst.data)) {
+        } else if (u_at(x, y) &&
+                   u.uundetected && hides_under(youmonst.data)) {
             (void) hideunder(&youmonst);
         }
         newsym(x, y);

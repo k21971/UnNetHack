@@ -127,7 +127,8 @@ gush(coordxy x, coordxy y, genericptr_t poolcnt)
     struct monst *mtmp;
     struct trap *ttmp;
 
-    if (((x+y)%2) || (x == u.ux && y == u.uy) ||
+    if (((x + y) % 2) ||
+        u_at(x, y) ||
         (rn2(1 + distmin(u.ux, u.uy, x, y)))  ||
         (levl[x][y].typ != ROOM) ||
         (sobj_at(BOULDER, x, y)) || nexttodoor(x, y))
@@ -568,11 +569,10 @@ dipfountain(struct obj *obj)
     dryup(u.ux, u.uy, TRUE);
 }
 
-#ifdef SINKS
 void
 breaksink(coordxy x, coordxy y)
 {
-    if (cansee(x, y) || (x == u.ux && y == u.uy)) {
+    if (cansee(x, y) || u_at(x, y)) {
         pline_The("pipes break!  Water spurts out!");
     }
     level.flags.nsinks--;
@@ -719,6 +719,5 @@ drinksink(void)
             hliquid("water"));
     }
 }
-#endif /* SINKS */
 
 /*fountain.c*/

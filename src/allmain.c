@@ -902,7 +902,7 @@ newgame(void)
      *          - ucsfcgl!kneller
      */
     if (MON_AT(u.ux, u.uy)) {
-        mnexto(m_at(u.ux, u.uy));
+        mnexto(m_at(u.ux, u.uy), RLOC_NOMSG);
     }
     (void) makedog();
     docrt();

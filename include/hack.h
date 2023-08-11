@@ -258,9 +258,12 @@ enum hmon_atkmode_types {
 #define MM_EDOG         0x01000 /* add edog structure */
 #define MM_ASLEEP       0x02000 /* monsters should be generated asleep */
 #define MM_NOGRP        0x04000 /* suppress creation of monster groups */
+#define MM_NOMSG       0x040000L /* no appear message */
 /* if more MM_ flag masks are added, skip or renumber the GP_ one(s) */
-#define GP_ALLOW_XY     0x08000 /* [actually used by enexto() to decide whether
-                                 * to make an extra call to goodpos()]          */
+#define GP_ALLOW_XY    0x080000L /* [actually used by enexto() to decide
+                                  * whether to make extra call to goodpos()] */
+#define GP_ALLOW_U     0x100000L /* don't reject hero's location */
+#define GP_CHECKSCARY  0x200000L /* check monster for onscary() */
 
 /* flags for make_corpse() and mkcorpstat() */
 #define CORPSTAT_NONE   0x00
@@ -411,6 +414,12 @@ enum hmon_atkmode_types {
 #define NOSE 17
 #define STOMACH 18
 
+/* rloc() flags */
+#define RLOC_NONE    0x00
+#define RLOC_ERR     0x01 /* allow impossible() if no rloc */
+#define RLOC_MSG     0x02 /* show vanish/appear msg */
+#define RLOC_NOMSG   0x04 /* prevent appear msg, even for STRAT_APPEARMSG */
+
 /* indices for some special tin types */
 #define ROTTEN_TIN     0
 #define HOMEMADE_TIN   1
@@ -489,11 +498,13 @@ enum optset_restrictions {
                          + (is_racial_armor(obj) ? 1 : 0) \
                          - min((int)greatest_erosion(obj), objects[(obj)->otyp].a_ac))
 
-#define makeknown(x)    discover_object((x), TRUE, TRUE)
-#define distu(xx, yy)    dist2((int)(xx), (int)(yy), (int)u.ux, (int)u.uy)
-#define onlineu(xx, yy)  online2((int)(xx), (int)(yy), (int)u.ux, (int)u.uy)
+#define makeknown(x) discover_object((x), TRUE, TRUE)
+#define distu(xx, yy) dist2((int)(xx), (int)(yy), (int) u.ux, (int) u.uy)
+#define mdistu(mon) \
+        dist2((int) (mon)->mx, (int) (mon)->my, (int) u.ux, (int) u.uy)
+#define onlineu(xx, yy) online2((int)(xx), (int)(yy), (int) u.ux, (int) u.uy)
 
-#define rn1(x, y)    (rn2(x)+(y))
+#define rn1(x, y) (rn2(x) + (y))
 
 /* negative armor class is randomly weakened to prevent invulnerability */
 #define AC_VALUE(AC)    ((AC) >= 0 ? (AC) : -rnd(-(AC)))

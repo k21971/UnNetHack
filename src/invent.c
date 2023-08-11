@@ -3540,13 +3540,9 @@ dfeature_at(coordxy x, coordxy y, char *buf)
         cmap = S_ice;                   /* "ice" */
     } else if (is_pool(x, y)) {
         dfeature = "pool of water";
-    }
-#ifdef SINKS
-    else if (IS_SINK(ltyp)) {
-        cmap = S_sink;              /* "sink" */
-    }
-#endif
-    else if (IS_ALTAR(ltyp)) {
+    } else if (IS_SINK(ltyp)) {
+        cmap = S_sink;                  /* "sink" */
+    } else if (IS_ALTAR(ltyp)) {
         Sprintf(altbuf, "altar to %s (%s)", a_gname_at(x, y),
                 align_str(Amask2align(lev->altarmask & ~AM_SHRINE)));
         dfeature = altbuf;
@@ -4113,7 +4109,7 @@ void
 useupf(struct obj *obj, long int numused)
 {
     struct obj *otmp;
-    boolean at_u = (obj->ox == u.ux && obj->oy == u.uy);
+    boolean at_u = u_at(obj->ox, obj->oy);
 
     /* burn_floor_objects() keeps an object pointer that it tries to
      * useupf() multiple times, so obj must survive if plural */
