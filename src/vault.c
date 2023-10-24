@@ -518,6 +518,7 @@ invault(void)
             } else {
                 verbalize("Please follow me.");
             }
+        } else {
             if (!umoney) {
                 if (Deaf) {
                     if (!Blind) {
@@ -848,6 +849,9 @@ gd_move(struct monst *grd)
                               !umoney ?
                               "drop that hidden gold and " :
                               "drop that gold and ") : "");
+            }
+            if (egrd->warncnt == 6 && !Deaf) {
+                verbalize("This is your final warning!  Drop any remaining gold immediately!");
             }
             if (egrd->warncnt == 7) {
                 m = grd->mx;
