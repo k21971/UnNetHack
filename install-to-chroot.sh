@@ -21,11 +21,11 @@ COMPRESSBIN="/bin/gzip"
 NH_GIT="/home/build/UnNetHack"
 NH_BRANCH="master"
 # HACKDIR from include/config.h; aka nethack subdir inside chroot
-NHSUBDIR="unnethack-6.0.8"
+NHSUBDIR="unnethack-6.0.9"
 # VAR_PLAYGROUND from include/unixconf.h
-NH_VAR_PLAYGROUND="/unnethack-6.0.8/var"
+NH_VAR_PLAYGROUND="/unnethack-6.0.9/var"
 # nhdat location
-NHDAT_DIR="/unnethack-6.0.8"
+NHDAT_DIR="/unnethack-6.0.9"
 # END OF CONFIG
 ##############################################################################
 
@@ -50,8 +50,8 @@ set -e
 umask 022
 
 echo "Creating inprogress and userdata directories"
-mkdir -p "$NAO_CHROOT/dgldir/inprogress-un608"
-chown "$USRGRP" "$NAO_CHROOT/dgldir/inprogress-un608"
+mkdir -p "$NAO_CHROOT/dgldir/inprogress-un609"
+chown "$USRGRP" "$NAO_CHROOT/dgldir/inprogress-un609"
 mkdir -p "$NAO_CHROOT/dgldir/extrainfo-un"
 chown "$USRGRP" "$NAO_CHROOT/dgldir/extrainfo-un"
 
