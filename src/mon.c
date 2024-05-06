@@ -129,6 +129,11 @@ mon_sanity_check(void)
                        mtmp->data->mname, fmt_ptr(mtmp), x, y);
         } else if (mtmp->wormno) {
             sanity_check_worm(mtmp);
+        /* some temp mstate bits can be expected for a mon on fmon, as part of
+           removing it, but DEADMONSTER check above should skip those. */
+        } else if (mon_offmap(mtmp)) {
+            impossible("floor mon (%s) with mstate set to 0x%08lx",
+                       fmt_ptr((genericptr_t) mtmp), mtmp->mstate);
         }
     }
 
@@ -157,6 +162,11 @@ mon_sanity_check(void)
 
     for (mtmp = migrating_mons; mtmp; mtmp = mtmp->nmon) {
         sanity_check_single_mon(mtmp, FALSE, "migr");
+
+        if ((mtmp->mstate & ~(MON_MIGRATING | MON_LIMBO | MON_ENDGAME_MIGR | MON_OFFMAP)) != 0L ||
+             !(mtmp->mstate & MON_MIGRATING))
+            impossible("migrating mon (%s) with mstate set to 0x%08lx",
+                       fmt_ptr((genericptr_t) mtmp), mtmp->mstate);
     }
 
     wormno_sanity_check(); /* test for bogus worm tail */
@@ -822,7 +832,7 @@ movemon(void)
            off the map too; gd_move() decides whether the temporary
            corridor can be removed and guard discarded (via clearing
            mon->isgd flag so that dmonsfree() will get rid of mon) */
-        if (mtmp->isgd && !mtmp->mx) {
+        if (mtmp->isgd && !mtmp->mx && !(mtmp->mstate & MON_MIGRATING)) {
             /* parked at <0,0>; eventually isgd should get set to false */
             if (monstermoves > mtmp->mlstmv) {
                 (void) gd_move(mtmp);
@@ -1831,9 +1841,15 @@ replmon(struct monst *mtmp, struct monst *mtmp2)
     }
     mtmp2->nmon = fmon;
     fmon = mtmp2;
-    if (u.ustuck == mtmp) u.ustuck = mtmp2;
-    if (u.usteed == mtmp) u.usteed = mtmp2;
-    if (mtmp2->isshk) replshk(mtmp, mtmp2);
+    if (u.ustuck == mtmp) {
+        set_ustuck(mtmp2);
+    }
+    if (u.usteed == mtmp) {
+        u.usteed = mtmp2;
+    }
+    if (mtmp2->isshk) {
+        replshk(mtmp, mtmp2);
+    }
 
     /* discard the old monster */
     dealloc_monst(mtmp);
@@ -2031,8 +2047,12 @@ m_detach(struct monst *mtmp, struct permonst *mptr) /**< reflects mtmp->data _pr
         mtmp->mstate |= MON_ENDGAME_FREE;
     }
 
-    mtmp->mstate |= MON_DETACH;
-    iflags.purge_monsters++;
+    if ((mtmp->mstate & MON_DETACH) != 0) {
+        impossible("m_detach: %s is already detached?", minimal_monnam(mtmp, FALSE));
+    } else {
+        mtmp->mstate |= MON_DETACH;
+        iflags.purge_monsters++;
+    }
 }
 
 /* find the worn amulet of life saving which will save a monster */
@@ -2266,11 +2286,16 @@ mondead_helper(struct monst *mtmp, uchar adtyp)
 
 #ifdef KOPS
     if (mtmp->data->mlet == S_KOP) {
+        stairway *stway = stairway_find_type_dir(FALSE, FALSE);
+
         /* Dead Kops may come back. */
         switch (rnd(5)) {
         case 1: /* returns near the stairs */
-            (void) makemon(mtmp->data, xdnstair, ydnstair, NO_MM_FLAGS);
-            break;
+            if (stway) {
+                (void) makemon(mtmp->data, stway->sx, stway->sy, NO_MM_FLAGS);
+                break;
+            }
+            /* fall-through */
         case 2: /* randomly */
             (void) makemon(mtmp->data, 0, 0, NO_MM_FLAGS);
             break;
@@ -2666,26 +2691,51 @@ monkilled(struct monst *mdef, const char *fltxt, int how)
 }
 
 void
+set_ustuck(struct monst *mtmp)
+{
+    if (iflags.sanity_check || iflags.debug_fuzzer) {
+        if (mtmp && !m_next2u(mtmp)) {
+            impossible("Sticking to %s at distu %d?", mon_nam(mtmp), mdistu(mtmp));
+        }
+    }
+
+    flags.botl = TRUE;
+    u.ustuck = mtmp;
+    if (!u.ustuck) {
+        u.uswallow = 0;
+        u.uswldtim = 0;
+    }
+}
+
+void
 unstuck(struct monst* mtmp)
 {
     if (u.ustuck == mtmp) {
-        if (u.uswallow) {
+        struct permonst *ptr = mtmp->data;
+        unsigned swallowed = u.uswallow;
+
+        /* do this first so that docrt()'s botl update is accurate;
+           clears u.uswallow as well as setting u.ustuck to Null */
+        set_ustuck((struct monst *) 0);
+
+        if (swallowed) {
             u.ux = mtmp->mx;
             u.uy = mtmp->my;
-            u.uswallow = 0;
-            u.uswldtim = 0;
             if (Punished && uchain->where != OBJ_FLOOR) {
                 placebc();
             }
             vision_full_recalc = 1;
             docrt();
-            /* prevent swallower (mtmp might have just poly'd into something
-               without an engulf attack) from immediately re-engulfing */
-            if (attacktype(mtmp->data, AT_ENGL) && !mtmp->mspec_used) {
-                mtmp->mspec_used = rnd(2);
-            }
         }
-        u.ustuck = 0;
+        /* prevent holder/engulfer from immediately re-holding/re-engulfing
+           [note: this call to unstuck() might be because u.ustuck has just
+           changed shape and doesn't have a holding attack any more, hence
+           don't set mspec_used unconditionally] */
+        if (!mtmp->mspec_used && (dmgtype(ptr, AD_STCK) ||
+                                  attacktype(ptr, AT_ENGL) ||
+                                  attacktype(ptr, AT_HUGS))) {
+            mtmp->mspec_used = rnd(2);
+        }
     }
 }
 
@@ -3031,7 +3081,6 @@ migrate_mon(
     unstuck(mtmp);
     mdrop_special_objs(mtmp);
     migrate_to_level(mtmp, target_lev, xyloc, (coord *) 0);
-    mtmp->mstate |= MON_MIGRATING;
 }
 
 static boolean
@@ -3710,10 +3759,10 @@ hide_monst(struct monst *mon)
         if (mon->data->mlet == S_MIMIC && !M_AP_TYPE(mon)) {
             (void) restrap(mon);
         }
+        viz_array[y][x] = save_viz;
         if (hider_under) {
             (void) hideunder(mon);
         }
-        viz_array[y][x] = save_viz;
     }
 }
 

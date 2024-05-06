@@ -54,31 +54,31 @@
 /* #define USE_VARARGS */ /* use <varargs.h> instead of <stdarg.h> */
 /* #define USE_OLDARGS */ /* don't use any variable argument facilities */
 
-#if defined(apollo)     /* Apollos have stdarg(3) but not stdarg.h */
+#if defined(apollo) /* Apollos have stdarg(3) but not stdarg.h */
 # define USE_VARARGS
 #endif
 
-#if defined(NHSTDC) || defined(ULTRIX_PROTO) || defined(MAC)
-# if !defined(USE_VARARGS) && !defined(USE_OLDARGS) && !defined(USE_STDARG)
-#   define USE_STDARG
-# endif
+#if !defined(USE_STDARG) && !defined(USE_VARARGS) && !defined(USE_OLDARGS)
+/* the old VARARGS and OLDARGS stuff is still here, but since we're
+   requiring C99 these days it's unlikely to be useful */
+#define USE_STDARG
 #endif
 
 #ifdef NEED_VARARGS     /* only define these if necessary */
 /*
- * These have changed since 3.4.3.  VA_END() now provides an explicit
+ * These changed in 3.6.0.  VA_END() provides a hidden
  * closing brace to complement VA_DECL()'s hidden opening brace, so code
  * started with VA_DECL() needs an extra opening brace to complement
  * the explicit final closing brace.  This was done so that the source
  * would look less strange, where VA_DECL() appeared to introduce a
  * function whose opening brace was missing; there are now visible and
  * invisible braces at beginning and end.  Sample usage:
-   void foo VA_DECL(int, arg)  --macro expansion has a hidden opening brace
-   {  --new, explicit opening brace (actually introduces a nested block)
-   VA_START(bar);
-   ...code for foo...
-   VA_END();  --expansion now provides a closing brace for the nested block
-   }  --existing closing brace, still pairs with the hidden one in VA_DECL()
+ void foo VA_DECL(int, arg)  --macro expansion has a hidden opening brace
+ {  --explicit opening brace (actually introduces a nested block)
+ VA_START(bar);
+ ...code for foo...
+ VA_END();  --expansion provides a closing brace for the nested block
+ }  --closing brace, pairs with the hidden one in VA_DECL()
  * Reading the code--or using source browsing tools which match braces--
  * results in seeing a matched set of braces.  Usage of VA_END() is
  * potentially trickier, but nethack uses it in a straightforward manner.
@@ -171,91 +171,12 @@ typedef const char *vA;
 
 #endif /* NEED_VARARGS */
 
-#if defined(NHSTDC) || defined(MSDOS) || defined(MAC) \
-    || defined(ULTRIX_PROTO) || defined(__BEOS__)
-
-/*
- * Used for robust ANSI parameter forward declarations:
- * int VDECL(sprintf, (char *, const char *, ...));
- *
- * VDECL() is used for functions with a variable number of arguments.
- * Separate macros are needed because ANSI will mix old-style declarations
- * with prototypes, except in the case of varargs, and the OVERLAY-specific
- * trampoli.* mechanism conflicts with the ANSI <<f(void)>> syntax.
- */
-
-# if defined(MSDOS) || defined(USE_STDARG)
-#  define VDECL(f, p)    f p
-# else
-#  define VDECL(f, p)    f()
-# endif
-
-/*
- * Used for definitions of functions which take no arguments to force
- * an explicit match with the NDECL prototype.  Needed in some cases
- * (MS Visual C 2005) for functions called through pointers.
- */
-# define VOID_ARGS void
-
 /* generic pointer, always a macro; genericptr_t is usually a typedef */
 # define genericptr void *
-
-# if (defined(ULTRIX_PROTO) && !defined(__GNUC__)) || defined(OS2_CSET2)
-/* Cover for Ultrix on a DECstation with 2.0 compiler, which coredumps on
- *   typedef void * genericptr_t;
- *   extern void a(void(*)(int, genericptr_t));
- * Using the #define is OK for other compiler versions too.
- */
-/* And IBM CSet/2.  The redeclaration of free hoses the compile. */
-#  define genericptr_t  genericptr
-# else
-#  if !defined(NHSTDC) && !defined(MAC)
-#   define const
-#   define signed
-#   define volatile
-#  endif
-# endif
-
-/*
- * Suppress `const' if necessary and not handled elsewhere.
- * Don't use `#if defined(xxx) && !defined(const)'
- * because some compilers choke on `defined(const)'.
- * This has been observed with Lattice, MPW, and High C.
- */
-# if (defined(ULTRIX_PROTO) && !defined(NHSTDC)) || defined(apollo)
-/* the system header files don't use `const' properly */
-#  ifndef const
-#   define const
-#  endif
-# endif
-
-#else /* NHSTDC */  /* a "traditional" C  compiler */
-
-# define VDECL(f, p) f()
-
-# define VOID_ARGS /*empty*/
-
-# if defined(AMIGA) || defined(HPUX) || defined(POSIX_TYPES) \
-    || defined(__DECC) || defined(__BORLANDC__)
-#  define genericptr    void *
-# endif
-# ifndef genericptr
-#  define genericptr    char *
-# endif
-
-/*
- * Traditional C compilers don't have "signed", "const", or "volatile".
- */
-# define signed
-# define const
-# define volatile
-
-#endif /* NHSTDC */
 
 #ifndef genericptr_t
 typedef genericptr genericptr_t;    /* (void *) or (char *) */
 #endif
-
 
 #if defined(MICRO) || defined(WIN32)
 /* We actually want to know which systems have an ANSI run-time library
@@ -360,11 +281,8 @@ typedef genericptr genericptr_t;    /* (void *) or (char *) */
  */
 # undef VDECL
 # define VDECL(f, p) f()
-# undef VOID_ARGS
-# define VOID_ARGS /*empty*/
 #endif
 #endif
-
 
 /* MetaWare High-C defaults to unsigned chars */
 /* AIX 3.2 needs this also */
@@ -375,7 +293,18 @@ typedef genericptr genericptr_t;    /* (void *) or (char *) */
 #ifdef __clang__
 /* clang's gcc emulation is sufficient for nethack's usage */
 #ifndef __GNUC__
-#define __GNUC__ 4
+#define __GNUC__ 5 /* high enough for returns_nonnull */
+#endif
+#endif
+
+/*
+ * Give first priority to standard
+ */
+#ifndef ATTRNORETURN
+#if defined(__STDC_VERSION__) || defined(__cplusplus)
+#if (__STDC_VERSION__ > 202300L) || defined(__cplusplus)
+#define ATTRNORETURN [[noreturn]]
+#endif
 #endif
 #endif
 
@@ -387,9 +316,16 @@ typedef genericptr genericptr_t;    /* (void *) or (char *) */
 #if (__GNUC__ >= 2) && !defined(USE_OLDARGS)
 #define PRINTF_F(f, v) __attribute__((format(printf, f, v)))
 #endif
+#if (__GNUC__ > 3) || (__GNUC__ == 3 && __GNUC_MINOR__ >= 1)
+#define PRINTF_F_PTR(f, v) PRINTF_F(f, v)
+#endif
 #if __GNUC__ >= 3
 #define UNUSED __attribute__((unused))
+#ifndef ATTRNORETURN
+#ifndef NORETURN
 #define NORETURN __attribute__((noreturn))
+#endif
+#endif
 #if (!defined(__linux__) && !defined(MACOS)) || defined(GCC_URWARN)
 /* disable gcc's __attribute__((__warn_unused_result__)) since explicitly
    discarding the result by casting to (void) is not accepted as a 'use' */
@@ -397,16 +333,111 @@ typedef genericptr genericptr_t;    /* (void *) or (char *) */
 #define warn_unused_result __attribute__
 #endif
 #endif
+#if __GNUC__ >= 5
+#ifndef NONNULLS_DEFINED
+#define DO_DEFINE_NONNULLS
+#endif  /* !NONNULLS_DEFINED */
+/* #pragma message is available */
+#define NH_PRAGMA_MESSAGE 1
+#endif
+#endif
+
+#if defined(__clang__) && !defined(DO_DEFINE_NONNULLS)
+#define DO_DEFINE_NONNULLS
+#endif
+
+#if defined(DO_DEFINE_NONNULLS) && !defined(NONNULLS_DEFINED)
+#define NONNULL __attribute__((returns_nonnull))
+#define NONNULLPTRS __attribute__((nonnull))
+#define NONNULLARG1 __attribute__((nonnull (1)))
+#define NONNULLARG2 __attribute__((nonnull (2)))
+#define NONNULLARG3 __attribute__((nonnull (3)))
+#define NONNULLARG4 __attribute__((nonnull (4)))
+#define NONNULLARG5 __attribute__((nonnull (5)))
+#define NONNULLARG6 __attribute__((nonnull (6)))
+#define NONNULLARG7 __attribute__((nonnull (7))) /* for bhit() */
+#define NONNULLARG12 __attribute__((nonnull (1, 2)))
+#define NONNULLARG23 __attribute__((nonnull (2, 3)))
+#define NONNULLARG123 __attribute__((nonnull (1, 2, 3)))
+#define NONNULLARG13 __attribute__((nonnull (1, 3)))
+#define NONNULLARG14 __attribute__((nonnull (1, 4))) /* for query_category */
+#define NONNULLARG134 __attribute__((nonnull (1, 3, 4))) /* for do_stone_mon */
+#define NONNULLARG145 __attribute__((nonnull (1, 4, 5))) /* find_roll_to_hit */
+#define NONNULLARG17 __attribute__((nonnull (1, 7))) /* for askchain() */
+#define NONNULLARG24 __attribute__((nonnull (2, 4))) /* query_objlist() */
+#define NONNULLARG45 __attribute__((nonnull (4, 5))) /* do_screen_descri... */
+#define NONNULLS_DEFINED
+#undef DO_DEFINE_NONNULLS
+#endif  /* __clang__ && !NONNULLS_DEFINED */
+
+#ifdef _MSC_VER
+#ifndef ATTRNORETURN
+#define ATTRNORETURN __declspec(noreturn)
+#endif
+/* #pragma message is available */
+#define NH_PRAGMA_MESSAGE 1
 #endif
 
 #ifndef PRINTF_F
 #define PRINTF_F(f, v)
 #endif
+#ifndef PRINTF_F_PTR
+#define PRINTF_F_PTR(f, v)
+#endif
 #ifndef UNUSED
 #define UNUSED
 #endif
+#ifndef ATTRNORETURN
+#define ATTRNORETURN
+#endif
 #ifndef NORETURN
 #define NORETURN
+#endif
+#ifndef NONNULLS_DEFINED
+#define NONNULL
+#define NONNULLPTRS
+#define NONNULLARG1
+#define NONNULLARG2
+#define NONNULLARG3
+#define NONNULLARG4
+#define NONNULLARG5
+#define NONNULLARG6
+#define NONNULLARG7
+#define NONNULLARG12
+#define NONNULLARG23
+#define NONNULLARG123
+#define NONNULLARG13
+#define NONNULLARG14
+#define NONNULLARG134
+#define NONNULLARG145
+#define NONNULLARG17
+#define NONNULLARG24
+#define NONNULLARG45
+#define NONNULLS_DEFINED
+#endif  /* NONNULLS_DEFINED */
+#ifndef NO_NNARGS
+#define NO_NNARGS /*empty*/
+#endif  /* NO_NNARGS */
+
+/*
+ * Allow gcc and clang to catch the use of non-C99 functions that
+ * NetHack has replaced with a C99 standard function. The old non-C99
+ * function will cause a link failure on non-Unix platforms,
+ * so it is preferrable to catch it early, during compile.
+ */
+#if !defined(X11_BUILD) && !defined(__cplusplus)
+#if defined(__GNUC__) && !defined(__clang__)
+#if __GNUC__ >= 12
+extern char *index(const char *s, int c) __attribute__ ((unavailable));
+extern char *rindex(const char *s, int c) __attribute__ ((unavailable));
+#endif
+#endif
+#if defined(__clang__)
+#if __clang_major__ >= 7
+extern char *index(const char *s, int c) __attribute__ ((unavailable));
+extern char *rindex(const char *s, int c) __attribute__ ((unavailable));
+#endif
+#endif
 #endif
 
 #endif /* TRADSTDC_H */

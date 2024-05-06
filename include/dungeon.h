@@ -28,10 +28,13 @@ typedef struct s_level { /* special dungeon level element */
     d_flags flags;  /* type flags */
 } s_level;
 
-typedef struct stairway {   /* basic stairway identifier */
+typedef struct stairway { /* basic stairway identifier */
     coordxy sx, sy;       /* x / y location of the stair */
-    d_level tolev;      /* where does it go */
-    char up;        /* what type of stairway (up/down) */
+    d_level tolev;        /* where does it go */
+    boolean up;           /* up or down? */
+    boolean isladder;     /* ladder or stairway? */
+    boolean u_traversed;  /* hero has traversed this stair */
+    struct stairway *next;
 } stairway;
 
 /* level region types */
@@ -186,16 +189,6 @@ struct linfo {
  * Note:  VISITED and LFILE_EXISTS are currently almost always set at the
  * same time.  However they _mean_ different things.
  */
-
-#ifdef MFLOPPY
-# define FROMPERM    1  /* for ramdisk use */
-# define TOPERM      2  /* for ramdisk use */
-# define ACTIVE      1
-# define SWAPPED     2
-    int where;
-    long time;
-    long size;
-#endif /* MFLOPPY */
 };
 
 /* types and structures for dungeon map recording

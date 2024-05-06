@@ -91,15 +91,6 @@ char levels[PATHLEN];       /* where levels are */
 # endif
 #endif /* MICRO || WIN32 */
 
-
-#ifdef MFLOPPY
-char permbones[PATHLEN];    /* where permanent copy of bones go */
-int ramdisk = FALSE;        /* whether to copy bones to levels or not */
-int saveprompt = TRUE;
-const char *alllevels = "levels.*";
-const char *allbones = "bones*.*";
-#endif
-
 struct linfo level_info[MAXLINFO];
 
 NEARDATA struct sinfo program_state;
@@ -127,9 +118,7 @@ NEARDATA struct dig_info digging;
 
 NEARDATA dungeon dungeons[MAXDUNGEON];  /* ini'ed by init_dungeon() */
 NEARDATA s_level *sp_levchn;
-NEARDATA stairway upstair = { 0 }, dnstair = { 0 };
-NEARDATA stairway upladder = { 0 }, dnladder = { 0 };
-NEARDATA stairway sstairs = { 0 };
+stairway *stairs = NULL;
 NEARDATA dest_area updest = { 0 };
 NEARDATA dest_area dndest = { 0 };
 NEARDATA coord inv_pos = { 0 };
@@ -334,7 +323,34 @@ struct u_achieve achieve = DUMMY;
 struct u_realtime urealtime = { 0 };
 #endif
 
+d_level uz_save = DUMMY;
+
 struct _plinemsg *pline_msg = NULL;
+
+const struct savefile_info default_sfinfo = {
+#ifdef NHSTDC
+    0x00000000UL
+#else
+    0x00000000L
+#endif
+#if defined(COMPRESS) || defined(ZLIB_COMP)
+        | SFI1_EXTERNALCOMP
+#endif
+#if defined(ZEROCOMP)
+        | SFI1_ZEROCOMP
+#endif
+#if defined(RLECOMP)
+        | SFI1_RLECOMP
+#endif
+    ,
+#ifdef NHSTDC
+    0x00000000UL, 0x00000000UL
+#else
+    0x00000000L, 0x00000000L
+#endif
+};
+
+struct savefile_info sfcap, sfrestinfo, sfsaveinfo;
 
 /* FIXME: The curses windowport requires this stupid hack, in the
    case where a game is in progress and the user is asked if he

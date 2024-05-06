@@ -372,6 +372,9 @@ call_kops(struct monst *shkp, boolean nearshop)
 
     {
         coord mm;
+        coordxy sx = 0, sy = 0;
+
+        choose_stairs(&sx, &sy, TRUE);
 
         if (nearshop) {
 #ifdef BLACKMARKET
@@ -403,15 +406,21 @@ call_kops(struct monst *shkp, boolean nearshop)
                 }
                 trap = trap->ntrap;
             }
+            makekops(&mm);
         } else {
-            mm.x = xdnstair;
-            mm.y = ydnstair;
+            if (isok(sx, sy)) {
+                mm.x = sx;
+                mm.y = sy;
+                makekops(&mm);
+            }
         }
 #else /* BLACKMARKET */
-        mm.x = xdnstair;
-        mm.y = ydnstair;
+        if (isok(sx, sy)) {
+            mm.x = sx;
+            mm.y = sy;
+            makekops(&mm);
+        }
 #endif /* BLACKMARKET */
-        makekops(&mm);
         /* Create swarm near shopkeeper (hinders return to shop) */
         mm.x = shkp->mx;
         mm.y = shkp->my;
@@ -3140,7 +3149,7 @@ sub_one_frombill(struct obj *obj, struct monst *shkp)
             otmp = newobj();
             *otmp = *obj;
             otmp->oextra = (struct oextra *) 0;
-            bp->bo_id = otmp->o_id = flags.ident++;
+            bp->bo_id = otmp->o_id = next_ident();
             otmp->where = OBJ_FREE;
             otmp->quan = (bp->bquan -= obj->quan);
             otmp->owt = 0; /* superfluous */

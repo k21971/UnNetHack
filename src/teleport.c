@@ -551,6 +551,8 @@ teleok(coordxy x, coordxy y, boolean trapok)
 void
 teleds(coordxy nux, coordxy nuy, boolean allow_drag)
 {
+    unsigned was_swallowed;
+
     if (u.utraptype == TT_BURIEDBALL) {
         /* unearth it */
         buried_ball_to_punishment();
@@ -589,7 +591,8 @@ teleds(coordxy nux, coordxy nuy, boolean allow_drag)
     }
     u.ufeetfrozen = 0;   /* ice doesn't teleport with the player */
     reset_utrap(FALSE);
-    u.ustuck = 0;
+    was_swallowed = u.uswallow; /* set_ustuck(Null) clears uswallow */
+    set_ustuck((struct monst *) 0);
     u.ux0 = u.ux;
     u.uy0 = u.uy;
 
@@ -598,7 +601,7 @@ teleds(coordxy nux, coordxy nuy, boolean allow_drag)
         youmonst.m_ap_type = M_AP_NOTHING;
     }
 
-    if (u.uswallow) {
+    if (was_swallowed) {
         u.uswldtim = u.uswallow = 0;
         if (Punished && !ball_active) {
             /* ensure ball placement, like unstuck */
@@ -1698,6 +1701,21 @@ rloc_to_flag(
     rloc_to_core(mtmp, x, y, rlocflags);
 }
 
+static stairway *
+stairway_find_forwiz(boolean isladder, boolean up)
+{
+    stairway *stway = stairs;
+
+    while (stway &&
+           !(stway->isladder == isladder &&
+             stway->up == up &&
+             stway->tolev.dnum == u.uz.dnum)) {
+        stway = stway->next;
+    }
+
+    return stway;
+}
+
 /* place a monster at a random location, typically due to teleport;
    return TRUE if successful, FALSE if not; rlocflags is RLOC_foo flags */
 boolean
@@ -1706,6 +1724,7 @@ rloc(
     unsigned rlocflags)
 {
     int x, y, trycount;
+    stairway *stway;
 
     if (mtmp == u.usteed) {
         tele();
@@ -1714,11 +1733,17 @@ rloc(
 
     if (mtmp->iswiz && mtmp->mx) { /* Wizard, not just arriving */
         if (!In_W_tower(u.ux, u.uy, &u.uz)) {
-            x = xupstair,  y = yupstair;
-        } else if (!xdnladder) { /* bottom level of tower */
-            x = xupladder,  y = yupladder;
+            stway = stairway_find_forwiz(FALSE, TRUE);
+            x = stway->sx;
+            y = stway->sy;
+        } else if (!stairway_find_forwiz(TRUE, FALSE)) { /* bottom level of tower */
+            stway = stairway_find_forwiz(TRUE, TRUE);
+            x = stway->sx;
+            y = stway->sy;
         } else {
-            x = xdnladder,  y = ydnladder;
+            stway = stairway_find_forwiz(TRUE, FALSE);
+            x = stway->sx;
+            y = stway->sy;
         }
         /* if the wiz teleports away to heal, try the up staircase,
            to block the player's escaping before he's healed

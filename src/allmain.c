@@ -328,10 +328,15 @@ moveloop(boolean resuming)
 
                     /* TODO: adj difficulty in makemon */
                     if (!rn2(monclock)) {
-                        if (u.uevent.udemigod && xupstair && rn2(10)) {
-                            (void) makemon((struct permonst *)0, xupstair, yupstair, MM_ADJACENTOK);
-                        } else if (u.uevent.udemigod && sstairs.sx && rn2(10)) {
-                            (void) makemon((struct permonst *)0, sstairs.sx, sstairs.sy, MM_ADJACENTOK);
+                        stairway *stway;
+                        if (u.uevent.udemigod &&
+                             (stway = stairway_find_dir(TRUE)) &&
+                             rn2(10)) {
+                            (void) makemon((struct permonst *)0, stway->sx, stway->sy, MM_ADJACENTOK);
+                        } else if (u.uevent.udemigod &&
+                                   (stway = stairway_find_special_dir(TRUE)) &&
+                                   rn2(10)) {
+                            (void) makemon((struct permonst *)0, stway->sx, stway->sy, MM_ADJACENTOK);
                         } else {
                             (void) makemon((struct permonst *)0, 0, 0, NO_MM_FLAGS);
                         }
@@ -854,10 +859,6 @@ newgame(void)
 {
     int i;
 
-#ifdef MFLOPPY
-    gameDiskPrompt();
-#endif
-
     flags.ident = 1;
 
     for (i = 0; i < NUMMONS; i++) {
@@ -923,17 +924,16 @@ newgame(void)
         }
     }
 
-#ifdef INSURANCE
-    save_currentstate();
-#endif
-    program_state.something_worth_saving++; /* useful data now exists */
-
 #if defined(RECORD_REALTIME) || defined(REALTIME_ON_BOTL)
-
     /* Start the timer here */
     urealtime.realtime = (time_t)0L;
     urealtime.start_timing = current_epoch();
 #endif /* RECORD_REALTIME || REALTIME_ON_BOTL */
+
+#ifdef INSURANCE
+    save_currentstate();
+#endif
+    program_state.something_worth_saving++; /* useful data now exists */
 
     /* Success! */
     welcome(TRUE);

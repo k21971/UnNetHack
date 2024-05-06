@@ -506,6 +506,35 @@ splitobj(struct obj *obj, long int num)
     return otmp;
 }
 
+/* return the value of context.ident and then increment it to be ready for
+   its next use; used to be simple += 1 so that every value from 1 to N got
+   used but now has a random increase that skips half of potential values */
+unsigned
+next_ident(void)
+{
+    unsigned res = flags.ident;
+
+    /* +rnd(2): originally just +1; changed to rnd() to avoid potential
+       exploit of player using #adjust to split an object stack in a manner
+       that makes most recent ident%2 known; since #adjust takes no time,
+       no intervening activity like random creation of a new monster will
+       take place before next user command; with former +1, o_id%2 of the
+       next object to be created was knowable and player could make a wish
+       under controlled circumstances for an item that is affected by the
+       low bits of its obj->o_id [particularly helm of opposite alignment] */
+    flags.ident += rnd(2); /* ready for next new object or monster */
+
+    /* if ident has wrapped to 0, force it to be non-zero; if/when it
+       ever wraps past 0 (unlikely, but possible on a configuration which
+       uses 16-bit 'int'), just live with that and hope no o_id conflicts
+       between objects or m_id conflicts between monsters arise */
+    if (!flags.ident) {
+        flags.ident = rnd(2);
+    }
+
+    return res;
+}
+
 /* when splitting a stack that has o_id-based shop prices, pick an
    o_id value for the new stack that will maintain the same price */
 static unsigned
@@ -703,9 +732,9 @@ bill_dummy_object(struct obj *otmp)
     *dummy = *otmp;
     dummy->oextra = (struct oextra *) 0;
     dummy->where = OBJ_FREE;
-    dummy->o_id = flags.ident++;
+    dummy->o_id = next_ident();
     if (!dummy->o_id) {
-        dummy->o_id = flags.ident++; /* ident overflowed */
+        dummy->o_id = next_ident(); /* ident overflowed */
     }
     dummy->timed = 0;
     copy_oextra(dummy, otmp);
@@ -831,9 +860,9 @@ mksobj(int otyp, boolean init, boolean artif)
     otmp = newobj();
     *otmp = zeroobj;
     otmp->age = monstermoves;
-    otmp->o_id = flags.ident++;
+    otmp->o_id = next_ident();
     if (!otmp->o_id) {
-        otmp->o_id = flags.ident++; /* ident overflowed */
+        otmp->o_id = next_ident(); /* ident overflowed */
     }
     otmp->quan = 1L;
     otmp->oclass = let;
@@ -1761,13 +1790,12 @@ save_mtraits(struct obj *obj, struct monst *mtmp)
         newomonst(obj);
     }
     if (has_omonst(obj)) {
+        int baselevel = mtmp->data->mlevel; /* mtmp->data is valid ptr */
         struct monst *mtmp2 = OMONST(obj);
 
         *mtmp2 = *mtmp;
         mtmp2->mextra = (struct mextra *) 0;
-        if (mtmp->data) {
-            mtmp2->mnum = monsndx(mtmp->data);
-        }
+        mtmp2->mnum = monsndx(mtmp->data);
         /* invalidate pointers */
         /* m_id is needed to know if this is a revived quest leader */
         /* but m_id must be cleared when loading bones */
@@ -1777,6 +1805,23 @@ save_mtraits(struct obj *obj, struct monst *mtmp)
         if (mtmp->mextra) {
             copy_mextra(mtmp2, mtmp);
         }
+        /* if mtmp is a long worm with segments, its saved traits will
+           be one without any segments */
+        mtmp2->wormno = 0;
+        /* mtmp might have been killed by repeated life draining; make sure
+           mtmp2 can survive if revived ('baselevel' will be 0 for 1d4 mon) */
+        if (mtmp2->mhpmax <= baselevel) {
+            mtmp2->mhpmax = baselevel + 1;
+        }
+        /* mtmp is assumed to be dead but we don't kill it or its saved
+           traits, just force those to have a sane value for current HP */
+        if (mtmp2->mhp > mtmp2->mhpmax) {
+            mtmp2->mhp = mtmp2->mhpmax;
+        }
+        if (mtmp2->mhp < 1) {
+            mtmp2->mhp = 0;
+        }
+        mtmp2->mstate &= ~MON_DETACH;
     }
     return obj;
 }
@@ -1886,7 +1931,7 @@ place_object(struct obj *otmp, coordxy x, coordxy y)
     struct obj *otmp2 = level.objects[x][y];
 
     if (!isok(x, y)) { /* validate location */
-        void VDECL((*func), (const char *, ...)) PRINTF_F(1, 2);
+        void (*func)(const char *, ...) PRINTF_F_PTR(1, 2);
 
         func = (x < 0 || y < 0 || x > COLNO - 1 || y > ROWNO - 1) ? panic
                : impossible;
@@ -2277,6 +2322,8 @@ add_to_migration(struct obj *obj)
 
     obj->where = OBJ_MIGRATING;
     obj->nobj = migrating_objs;
+    obj->omigr_from_dnum = u.uz.dnum;
+    obj->omigr_from_dlevel = u.uz.dlevel;
     migrating_objs = obj;
 }
 

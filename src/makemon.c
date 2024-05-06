@@ -1075,9 +1075,9 @@ clone_mon(struct monst *mon,
     m2->mextra = (struct mextra *) 0;
     m2->nmon = fmon;
     fmon = m2;
-    m2->m_id = flags.ident++;
+    m2->m_id = next_ident();
     if (!m2->m_id) {
-        m2->m_id = flags.ident++; /* ident overflowed */
+        m2->m_id = next_ident(); /* ident overflowed */
     }
     m2->mx = mm.x;
     m2->my = mm.y;
@@ -1257,24 +1257,19 @@ makemon_rnd_goodpos(struct monst *mon, unsigned int gpflags, coord *cc)
                 }
             }
             if (bl == 0 && (!mon || mon->data->mmove)) {
+                stairway *stway = stairs;
                 /* all map positions are visible (or not good),
                    try to pick something logical */
-                if (dnstair.sx && !rn2(2)) {
-                    nx = dnstair.sx;
-                    ny = dnstair.sy;
-                } else if (upstair.sx && !rn2(2)) {
-                    nx = upstair.sx;
-                    ny = upstair.sy;
-                } else if (dnladder.sx && !rn2(2)) {
-                    nx = dnladder.sx;
-                    ny = dnladder.sy;
-                } else if (upladder.sx && !rn2(2)) {
-                    nx = upladder.sx;
-                    ny = upladder.sy;
+                while (stway) {
+                    if (stway->tolev.dnum == u.uz.dnum && !rn2(2)) {
+                        nx = stway->sx;
+                        ny = stway->sy;
+                        break;
+                    }
+                    stway = stway->next;
                 }
-                if (goodpos(nx, ny, mon, gpflags)) {
+                if (goodpos(nx, ny, mon, gpflags))
                     goto gotgood;
-                }
             }
         }
     } else {
@@ -1389,9 +1384,9 @@ _makemon(struct permonst *ptr, coordxy x, coordxy y, int mmflags)
 
     mtmp->nmon = fmon;
     fmon = mtmp;
-    mtmp->m_id = flags.ident++;
+    mtmp->m_id = next_ident();
     if (!mtmp->m_id) {
-        mtmp->m_id = flags.ident++; /* ident overflowed */
+        mtmp->m_id = next_ident(); /* ident overflowed */
     }
     set_mon_data(mtmp, ptr);
     if (ptr->msound == MS_LEADER && quest_info(MS_LEADER) == mndx) {

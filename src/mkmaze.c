@@ -853,7 +853,7 @@ migrate_orc(struct monst *mtmp, long unsigned int mflags)
         if (!rn2(40)) {
             nlev--;
         }
-        mtmp->mspare1 |= MIGR_LEFTOVERS;
+        mtmp->migflags |= MIGR_LEFTOVERS;
     } else {
         nlev = rn2((max_depth - cur_depth) + 1) + cur_depth;
         if (nlev == cur_depth) {
@@ -862,7 +862,7 @@ migrate_orc(struct monst *mtmp, long unsigned int mflags)
         if (nlev > max_depth) {
             nlev = max_depth;
         }
-        mtmp->mspare1 = (mtmp->mspare1 & ~MIGR_LEFTOVERS);
+        mtmp->migflags = (mtmp->migflags & ~MIGR_LEFTOVERS);
     }
     get_level(&dest, nlev);
     migrate_to_level(mtmp, ledger_no(&dest), MIGR_RANDOM, (coord *) 0);
@@ -1298,16 +1298,18 @@ makemaz(const char *s)
             panic("inv_pos: maze is too small! (%d x %d)",
                   x_maze_max, y_maze_max);
 #endif
+        stairway *stway;
         inv_pos.x = inv_pos.y = 0; /*{occupied() => invocation_pos()}*/
         do {
             x = rn1(x_range, x_maze_min + INVPOS_X_MARGIN + 1);
             y = rn1(y_range, y_maze_min + INVPOS_Y_MARGIN + 1);
             /* we don't want it to be too near the stairs, nor
                to be on a spot that's already in use (wall|trap) */
-        } while (x == xupstair || y == yupstair ||  /*(direct line)*/
-                 abs(x - xupstair) == abs(y - yupstair) ||
-                 distmin(x, y, xupstair, yupstair) <= INVPOS_DISTANCE ||
-                 !SPACE_POS(levl[x][y].typ) || occupied(x, y));
+        } while (((stway = stairway_find_dir(TRUE)) != 0) &&
+                (x == stway->sx || y == stway->sy || /*(direct line)*/
+                abs(x - stway->sx) == abs(y - stway->sy) ||
+                distmin(x, y, stway->sx, stway->sy) <= INVPOS_DISTANCE ||
+                !SPACE_POS(levl[x][y].typ) || occupied(x, y)));
         inv_pos.x = x;
         inv_pos.y = y;
 
@@ -1762,6 +1764,7 @@ movebubbles(void)
 
                         newsym(x, y); /* clean up old position */
                         mon->mx = mon->my = 0;
+                        mon->mstate |= MON_BUBBLEMOVE;
                     }
                     if (!u.uswallow && x == u.ux && y == u.uy) {
                         struct container *cons = (struct container *)
@@ -1855,7 +1858,7 @@ water_friction(void)
 }
 
 void
-save_waterlevel(int fd, int mode)
+save_waterlevel(NHFILE* nhfp)
 {
     struct bubble *b;
 
@@ -1863,45 +1866,57 @@ save_waterlevel(int fd, int mode)
         return;
     }
 
-    if (perform_bwrite(mode)) {
+    if (!bbubbles) {
+        return;
+    }
+
+    if (perform_bwrite(nhfp)) {
         int n = 0;
         for (b = bbubbles; b; b = b->next) {
             ++n;
         }
-        bwrite(fd, &n, sizeof n);
-        bwrite(fd, &xmin, sizeof xmin);
-        bwrite(fd, &ymin, sizeof ymin);
-        bwrite(fd, &xmax, sizeof xmax);
-        bwrite(fd, &ymax, sizeof ymax);
+        if (nhfp->structlevel) {
+            bwrite(nhfp->fd, (genericptr_t) &n, sizeof(int));
+            bwrite(nhfp->fd, (genericptr_t) &xmin, sizeof(int));
+            bwrite(nhfp->fd, (genericptr_t) &ymin, sizeof(int));
+            bwrite(nhfp->fd, (genericptr_t) &xmax, sizeof(int));
+            bwrite(nhfp->fd, (genericptr_t) &ymax, sizeof(int));
+        }
         for (b = bbubbles; b; b = b->next) {
-            bwrite(fd, b, sizeof *b);
+            if (nhfp->structlevel) {
+                bwrite(nhfp->fd, (genericptr_t) b, sizeof(struct bubble));
+            }
         }
     }
-    if (release_data(mode)) {
+    if (release_data(nhfp)) {
         unsetup_waterlevel();
     }
 }
 
 void
-restore_waterlevel(int fd)
+restore_waterlevel(NHFILE* nhfp)
 {
     struct bubble *b = (struct bubble *)0, *btmp;
-    int i, n;
+    int i, n = 0;
 
     if (!Is_waterlevel(&u.uz)) {
         return;
     }
 
     set_wportal();
-    mread(fd, &n, sizeof n);
-    mread(fd, &xmin, sizeof xmin);
-    mread(fd, &ymin, sizeof ymin);
-    mread(fd, &xmax, sizeof xmax);
-    mread(fd, &ymax, sizeof ymax);
+    if (nhfp->structlevel) {
+        mread(nhfp->fd, &n, sizeof n);
+        mread(nhfp->fd, &xmin, sizeof xmin);
+        mread(nhfp->fd, &ymin, sizeof ymin);
+        mread(nhfp->fd, &xmax, sizeof xmax);
+        mread(nhfp->fd, &ymax, sizeof ymax);
+    }
     for (i = 0; i < n; i++) {
         btmp = b;
         b = (struct bubble *) alloc(sizeof *b);
-        mread(fd, b, sizeof *b);
+        if (nhfp->structlevel) {
+            mread(nhfp->fd, b, sizeof *b);
+        }
         if (bbubbles) {
             btmp->next = b;
             b->prev = btmp;
@@ -1912,7 +1927,19 @@ restore_waterlevel(int fd)
         mv_bubble(b, 0, 0, TRUE);
     }
     ebubbles = b;
-    b->next = (struct bubble *)0;
+    if (b) {
+        b->next = (struct bubble *) 0;
+    } else {
+        /* avoid "saving and reloading may fix this" */
+        program_state.something_worth_saving = 0;
+        /* during restore, information about what level this is might not
+           be available so we're wishy-washy about what we describe */
+        impossible("No %s to restore?",
+                   (Is_waterlevel(&u.uz) || Is_waterlevel(&uz_save)) ? "air bubbles" :
+                   (Is_airlevel(&u.uz) || Is_airlevel(&uz_save)) ? "clouds" :
+                   "air bubbles or clouds");
+        program_state.something_worth_saving = 1;
+    }
     was_waterlevel = TRUE;
 }
 

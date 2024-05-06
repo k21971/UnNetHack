@@ -16,7 +16,8 @@ static int drop(struct obj *);
 static int wipeoff(void);
 
 static int menu_drop(int);
-static int currentlevel_rewrite(void);
+static boolean u_stuck_cannot_go(const char *);
+static NHFILE *currentlevel_rewrite(void);
 static void final_level(void);
 /* static boolean badspot(coordxy,coordxy); */
 static boolean unique_item_check(void);
@@ -682,15 +683,15 @@ static int
 drop(struct obj *obj)
 {
     if (!obj) {
-        return 0;
+        return ECMD_OK;
     }
     if (!canletgo(obj, "drop")) {
-        return 0;
+        return ECMD_OK;
     }
     if (obj == uwep) {
         if (welded(uwep)) {
             weldmsg(obj);
-            return 0;
+            return ECMD_OK;
         }
         setuwep((struct obj *) 0);
     }
@@ -718,7 +719,7 @@ drop(struct obj *obj)
         if ((obj->oclass == RING_CLASS || obj->otyp == MEAT_RING) &&
            IS_SINK(levl[u.ux][u.uy].typ)) {
             dosinkring(obj);
-            return 1;
+            return ECMD_TIME;
         }
 
         if (!can_reach_floor(TRUE)) {
@@ -731,14 +732,14 @@ drop(struct obj *obj)
             }
             freeinv(obj);
             hitfloor(obj, TRUE);
-            return 1;
+            return ECMD_TIME;
         }
         if (!IS_ALTAR(levl[u.ux][u.uy].typ) && flags.verbose) {
             You("drop %s.", doname(obj));
         }
     }
     dropx(obj);
-    return 1;
+    return ECMD_TIME;
 }
 
 /* Called in several places - may produce output */
@@ -886,7 +887,7 @@ doddrop(void)
 
     if (!invent) {
         You("have nothing to drop.");
-        return 0;
+        return ECMD_OK;
     }
     add_valid_menu_class(0); /* clear any classes already there */
     if (*u.ushops) {
@@ -1027,6 +1028,27 @@ drop_done:
     return n_dropped;
 }
 
+static boolean
+u_stuck_cannot_go(const char *updn)
+{
+    if (u.ustuck) {
+        if (u.uswallow || !sticks(youmonst.data)) {
+            You("are %s, and cannot go %s.",
+                !u.uswallow ? "being held" :
+                digests(u.ustuck->data) ? "swallowed" :
+                "engulfed",
+                updn);
+            return TRUE;
+        } else {
+            struct monst *mtmp = u.ustuck;
+
+            set_ustuck((struct monst *) 0);
+            You("release %s.", mon_nam(mtmp));
+        }
+    }
+    return FALSE;
+}
+
 /* on a ladder, used in goto_level */
 static NEARDATA boolean at_ladder = FALSE;
 
@@ -1035,16 +1057,21 @@ int
 dodown(void)
 {
     struct trap *trap = 0;
-    boolean stairs_down = ((u.ux == xdnstair && u.uy == ydnstair) ||
-                           (u.ux == sstairs.sx && u.uy == sstairs.sy && !sstairs.up)),
-            ladder_down = (u.ux == xdnladder && u.uy == ydnladder);
+    stairway *stway;
+    boolean stairs_down, ladder_down;
 
     if (u_rooted()) {
-        return 1;
+        return ECMD_TIME;
     }
 
     if (stucksteed(TRUE)) {
-        return 0;
+        return ECMD_OK;
+    }
+
+    stairs_down = ladder_down = FALSE;
+    if ((stway = stairway_at(u.ux, u.uy)) != 0 && !stway->up) {
+        stairs_down = !stway->isladder;
+        ladder_down = !stairs_down;
     }
 
     /* Levitation might be blocked, but player can still use '>' to
@@ -1119,36 +1146,35 @@ dodown(void)
         return 1; /* came out of hiding; might need '>' again to go down */
     }
 
+    if (u_stuck_cannot_go("down")) {
+        return ECMD_TIME;
+    }
+
     if (!stairs_down && !ladder_down) {
         trap = t_at(u.ux, u.uy);
         if (trap &&
              !Levitation &&
              (uteetering_at_seen_pit(trap) || uescaped_shaft(trap))) {
             dotrap(trap, TOOKPLUNGE);
-            return 1;
+            return ECMD_TIME;
         } else if (!trap || !is_hole(trap->ttyp) || !Can_fall_thru(&u.uz) || !trap->tseen) {
             if (flags.autodig && !flags.nopick &&
                 uwep && is_pick(uwep)) {
                 return use_pick_axe2(uwep);
             } else if (do_stair_travel('>')) {
-                return 0;
+                return ECMD_OK;
             } else {
                 You_cant("go down here.");
-                return 0;
+                return ECMD_OK;
             }
         }
     }
-    if (u.ustuck) {
-        You("are %s, and cannot go down.",
-            !u.uswallow ? "being held" : is_animal(u.ustuck->data) ?
-            "swallowed" : "engulfed");
-        return 1;
-    }
+
     if (on_level(&valley_level, &u.uz) && stairs_down && !u.uevent.gehennom_entered) {
         You("are standing at the gate to Gehennom.");
         pline("Unspeakable cruelty and harm lurk down there.");
         if (yn("Are you sure you want to enter?") != 'y') {
-            return 0;
+            return ECMD_OK;
         } else {
             pline("So be it.");
         }
@@ -1157,7 +1183,7 @@ dodown(void)
 
     if (!next_to_u()) {
         You("are held back by your pet!");
-        return 0;
+        return ECMD_OK;
     }
 
     if (trap) {
@@ -1174,7 +1200,7 @@ dodown(void)
                 u.utraptype = TT_PIT;
                 You("%s down into the pit.", locomotion(youmonst.data, "go"));
             }
-            return 0;
+            return ECMD_OK;
         } else {
             You("%s %s.", locomotion(youmonst.data, "jump"),
                 trap->ttyp == HOLE ? "down the hole" : "through the trap door");
@@ -1188,87 +1214,81 @@ dodown(void)
         next_level(!trap);
         at_ladder = FALSE;
     }
-    return 1;
+    return ECMD_TIME;
 }
 
 /** the '<' command */
 int
 doup(void)
 {
-    boolean not_on_stairs = (
-        (u.ux != xupstair || u.uy != yupstair) &&
-        (!xupladder || u.ux != xupladder || u.uy != yupladder) &&
-        (!sstairs.sx || u.ux != sstairs.sx ||
-         u.uy != sstairs.sy || !sstairs.up));
+    stairway *stway = stairway_at(u.ux,u.uy);
 
     if (u_rooted()) {
-        return 1;
+        return ECMD_TIME;
     }
 
     /* "up" to get out of a pit... */
     if (u.utrap && u.utraptype == TT_PIT) {
         climb_pit();
-        return 1;
+        return ECMD_TIME;
     }
 
-    if (not_on_stairs) {
+    if (!On_stairs_up(u.ux, u.uy)) {
         if (do_stair_travel('<')) {
-            return 0;
-        } else {
+            return ECMD_OK;
+        } else if (!stway || (stway && !stway->up)) {
             You_cant("go up here.");
-            return 0;
+            return ECMD_OK;
         }
     }
 
     if (stucksteed(TRUE)) {
-        return 0;
+        return ECMD_OK;
     }
 
-    if (u.ustuck) {
-        You("are %s, and cannot go up.",
-            !u.uswallow ? "being held" : is_animal(u.ustuck->data) ?
-            "swallowed" : "engulfed");
-        return 1;
+    if (u_stuck_cannot_go("up")) {
+        return ECMD_TIME;
     }
+
     if (near_capacity() > SLT_ENCUMBER) {
         /* No levitation check; inv_weight() already allows for it */
         Your("load is too heavy to climb the %s.",
              levl[u.ux][u.uy].typ == STAIRS ? "stairs" : "ladder");
-        return 1;
+        return ECMD_TIME;
     }
     if (ledger_no(&u.uz) == 1) {
         if (iflags.debug_fuzzer) {
-            return 0;
+            return ECMD_OK;
         }
         if (yn("Beware, there will be no return! Still climb?") != 'y') {
-            return 0;
+            return ECMD_OK;
         }
     }
     if (!next_to_u()) {
         You("are held back by your pet!");
-        return 0;
+        return ECMD_OK;
     }
     at_ladder = (boolean) (levl[u.ux][u.uy].typ == LADDER);
     prev_level(TRUE);
     at_ladder = FALSE;
-    return 1;
+    return ECMD_TIME;
 }
 
 d_level save_dlevel = {0, 0};
 
 /* check that we can write out the current level */
-static int
+static NHFILE *
 currentlevel_rewrite(void)
 {
-    int fd;
+    NHFILE *nhfp;
     char whynot[BUFSZ];
 
     /* since level change might be a bit slow, flush any buffered screen
      *  output (like "you fall through a trap door") */
     mark_synch();
 
-    fd = create_levelfile(ledger_no(&u.uz), whynot);
-    if (fd < 0) {
+    nhfp = create_levelfile(ledger_no(&u.uz), whynot);
+    if (!nhfp) {
         /*
          * This is not quite impossible: e.g., we may have
          * exceeded our quota. If that is the case then we
@@ -1277,40 +1297,36 @@ currentlevel_rewrite(void)
          * writable.
          */
         pline("%s", whynot);
-        return -1;
+        return (NHFILE *) 0;
     }
 
-#ifdef MFLOPPY
-    if (!savelev(fd, ledger_no(&u.uz), COUNT_SAVE)) {
-        (void) nhclose(fd);
-        delete_levelfile(ledger_no(&u.uz));
-        pline("UnNetHack is out of disk space for making levels!");
-        You("can save, quit, or continue playing.");
-        return -1;
-    }
-#endif
-    return fd;
+    return nhfp;
 }
 
 #ifdef INSURANCE
 void
 save_currentstate(void)
 {
-    int fd;
+    NHFILE *nhfp;
 
+    program_state.in_checkpoint++;
     if (flags.ins_chkpt) {
         /* write out just-attained level, with pets and everything */
-        fd = currentlevel_rewrite();
-        if (fd < 0) {
+        nhfp = currentlevel_rewrite();
+        if (!nhfp) {
             return;
         }
-        bufon(fd);
-        savelev(fd, ledger_no(&u.uz), WRITE_SAVE);
-        bclose(fd);
+        if (nhfp->structlevel) {
+            bufon(nhfp->fd);
+        }
+        nhfp->mode = WRITING;
+        savelev(nhfp, ledger_no(&u.uz));
+        close_nhfile(nhfp);
     }
 
     /* write out non-level state */
     savestateinlock();
+    program_state.in_checkpoint--;
 }
 #endif
 
@@ -1372,7 +1388,8 @@ d_level new_dlevel = {0, 0};
 void
 goto_level(d_level *newlevel, boolean at_stairs, boolean falling, boolean portal)
 {
-    int fd, l_idx;
+    int l_idx, save_mode;
+    NHFILE *nhfp;
     xint16 new_ledger;
     boolean cant_go_back,
             up = (depth(newlevel) < depth(&u.uz)),
@@ -1429,8 +1446,8 @@ goto_level(d_level *newlevel, boolean at_stairs, boolean falling, boolean portal
         buried_ball_to_punishment(); /* (before we save/leave old level) */
     }
 
-    fd = currentlevel_rewrite();
-    if (fd < 0) {
+    nhfp = currentlevel_rewrite();
+    if (!nhfp) {
         return;
     }
 
@@ -1444,7 +1461,7 @@ goto_level(d_level *newlevel, boolean at_stairs, boolean falling, boolean portal
     }
     reset_trapset(); /* even if to-be-armed trap obj is accompanying hero */
     fill_pit(u.ux, u.uy);
-    u.ustuck = 0; /* idem */
+    set_ustuck((struct monst *) 0); /* clear u.ustuck and u.uswallow */
     u.uinwater = 0;
     u.uundetected = 0;/* not hidden, even if means are available */
     keepdogs(FALSE);
@@ -1479,12 +1496,16 @@ goto_level(d_level *newlevel, boolean at_stairs, boolean falling, boolean portal
      */
     cant_go_back = (newdungeon && In_endgame(newlevel));
     if (!cant_go_back) {
-        update_mlstmv();    /* current monsters are becoming inactive */
-        bufon(fd);      /* use buffered output */
+        update_mlstmv();/* current monsters are becoming inactive */
+        if (nhfp->structlevel) {
+            bufon(nhfp->fd); /* use buffered output */
+        }
     }
-    savelev(fd, ledger_no(&u.uz),
-            cant_go_back ? FREE_SAVE : (WRITE_SAVE | FREE_SAVE));
-    bclose(fd);
+    save_mode = nhfp->mode;
+    nhfp->mode = cant_go_back ? FREEING : (WRITING | FREEING);
+    savelev(nhfp, ledger_no(&u.uz));
+    nhfp->mode = save_mode;
+    close_nhfile(nhfp);
     if (cant_go_back) {
         /* discard unreachable levels; keep #0 */
         for (l_idx = maxledgerno(); l_idx > 0; --l_idx) {
@@ -1548,8 +1569,8 @@ goto_level(d_level *newlevel, boolean at_stairs, boolean falling, boolean portal
         livelog_printf(LL_DEBUG, "entered new level %d, %s.", dunlev(&u.uz), dungeons[u.uz.dnum].dname);
     } else {
         /* returning to previously visited level; reload it */
-        fd = open_levelfile(new_ledger, whynot);
-        if (fd < 0) {
+        nhfp = open_levelfile(new_ledger, whynot);
+        if (tricked_fileremoved(nhfp, whynot)) {
             pline("%s", whynot);
             pline("Probably someone removed it.");
             Strcpy(killer.name, whynot);
@@ -1557,9 +1578,9 @@ goto_level(d_level *newlevel, boolean at_stairs, boolean falling, boolean portal
             /* we'll reach here if running in wizard mode */
             error("Cannot continue this game.");
         }
-        minit();    /* ZEROCOMP */
-        getlev(fd, hackpid, new_ledger, FALSE);
-        (void) close(fd);
+        minit(); /* ZEROCOMP */
+        getlev(nhfp, hackpid, new_ledger);
+        close_nhfile(nhfp);
     }
     u.uinwater = 0;
     /* do this prior to level-change pline messages */
@@ -1595,8 +1616,10 @@ goto_level(d_level *newlevel, boolean at_stairs, boolean falling, boolean portal
         u_on_newpos(ttrap->tx, ttrap->ty);
     } else if (at_stairs && !In_endgame(&u.uz)) {
         if (up) {
-            if (at_ladder) {
-                u_on_newpos(xdnladder, ydnladder);
+            stairway *stway = stairway_find_from(&u.uz0, at_ladder);
+            if (stway) {
+                u_on_newpos(stway->sx, stway->sy);
+                stway->u_traversed = TRUE;
             } else {
                 if (newdungeon) {
                     if (Is_stronghold(&u.uz)) {
@@ -1631,9 +1654,11 @@ goto_level(d_level *newlevel, boolean at_stairs, boolean falling, boolean portal
             } else if (at_ladder) {
                 You("climb up the ladder.");
             }
-        } else {    /* down */
-            if (at_ladder) {
-                u_on_newpos(xupladder, yupladder);
+        } else { /* down */
+            stairway *stway = stairway_find_from(&u.uz0, at_ladder);
+            if (stway) {
+                u_on_newpos(stway->sx, stway->sy);
+                stway->u_traversed = TRUE;
             } else {
                 if (newdungeon) {
                     u_on_sstairs(1);
@@ -2290,12 +2315,12 @@ wipeoff(void)
             Blinded = 1;
             make_blinded(0L, TRUE);
         }
-        return 0;
+        return ECMD_OK;
     } else if (!u.ucreamed) {
         Your("%s feels clean now.", body_part(FACE));
-        return 0;
+        return ECMD_OK;
     }
-    return 1;      /* still busy */
+    return ECMD_TIME; /* still busy */
 }
 
 int
@@ -2309,10 +2334,10 @@ dowipe(void)
         /* Not totally correct; what if they change back after now
          * but before they're finished wiping?
          */
-        return 1;
+        return ECMD_TIME;
     }
     Your("%s is already clean.", body_part(FACE));
-    return 1;
+    return ECMD_TIME;
 }
 
 void
