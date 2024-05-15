@@ -1746,34 +1746,24 @@ blow_up_landmine(struct trap *trap)
     }
 }
 
-/*
- * The following are used to track launched objects to
- * prevent them from vanishing if you are killed. They
- * will reappear at the launchplace in bones files.
- */
-static struct {
-    struct obj *obj;
-    coordxy x, y;
-} launchplace;
-
 static void
 launch_drop_spot(struct obj *obj, coordxy x, coordxy y)
 {
     if (!obj) {
-        launchplace.obj = (struct obj *) 0;
-        launchplace.x = 0;
-        launchplace.y = 0;
+        gl.launchplace.obj = (struct obj *) 0;
+        gl.launchplace.x = 0;
+        gl.launchplace.y = 0;
     } else {
-        launchplace.obj = obj;
-        launchplace.x = x;
-        launchplace.y = y;
+        gl.launchplace.obj = obj;
+        gl.launchplace.x = x;
+        gl.launchplace.y = y;
     }
 }
 
 boolean
 launch_in_progress(void)
 {
-    if (launchplace.obj) {
+    if (gl.launchplace.obj) {
         return TRUE;
     }
     return FALSE;
@@ -1782,9 +1772,9 @@ launch_in_progress(void)
 void
 force_launch_placement(void)
 {
-    if (launchplace.obj) {
-        launchplace.obj->otrapped = 0;
-        place_object(launchplace.obj, launchplace.x, launchplace.y);
+    if (gl.launchplace.obj) {
+        gl.launchplace.obj->otrapped = 0;
+        place_object(gl.launchplace.obj, gl.launchplace.x, gl.launchplace.y);
     }
 }
 
@@ -3193,11 +3183,11 @@ float_down(long int hmask, long int emask) /**< might cancel timeout */
         return 1;
     }
 
-    if (Punished && !carried(uball) &&
+    if (Punished && !carried(uball) && !m_at(uball->ox, uball->oy) &&
         (is_pool(uball->ox, uball->oy) ||
+         is_open_air(uball->ox, uball->oy) ||
          ((trap = t_at(uball->ox, uball->oy)) &&
-          ((trap->ttyp == PIT) || (trap->ttyp == SPIKED_PIT) ||
-           (trap->ttyp == TRAPDOOR) || (trap->ttyp == HOLE))))) {
+          (is_pit(trap->ttyp) || is_hole(trap->ttyp))))) {
         u.ux0 = u.ux;
         u.uy0 = u.uy;
         u.ux = uball->ox;
@@ -3236,6 +3226,10 @@ float_down(long int hmask, long int emask) /**< might cancel timeout */
         }
         if (is_swamp(u.ux, u.uy) && !Wwalking) {
             (void) swamp_effects();
+            no_msg = TRUE;
+        }
+        if (is_open_air(u.ux, u.uy)) {
+            u_aireffects();
             no_msg = TRUE;
         }
     }

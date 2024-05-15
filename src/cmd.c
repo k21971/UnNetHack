@@ -1322,6 +1322,7 @@ static const char *levltyp[] = {
     "drawbridge up", "lava pool", "iron bars", "door", "corridor", "room",
     "stairs", "ladder", "fountain", "throne", "sink", "grave", "altar", "ice",
     "swamp",
+    "magic platform",
     "drawbridge down", "air", "cloud",
     /* not a real terrain type, but used for undiggable stone
        by wiz_map_levltyp() */
@@ -1329,6 +1330,16 @@ static const char *levltyp[] = {
     /* padding in case the number of entries above is odd */
     ""
 };
+
+const char *
+levltyp_to_name(int typ)
+{
+    if (typ >= 0 && typ < MAX_TYPE) {
+        return levltyp[typ];
+    }
+
+    return NULL;
+}
 
 /* explanation of base-36 output from wiz_map_levltyp() */
 static void

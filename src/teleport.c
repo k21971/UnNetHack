@@ -79,6 +79,9 @@ badpos(coordxy x, coordxy y, struct monst *mtmp, unsigned int gpflags)
                        is_badpos : -1;
             }
         }
+        if (is_open_air(x, y) && grounded(mdat)) {
+            return FALSE;
+        }
         if (passes_walls(mdat) && may_passwall(x, y)) {
             return is_badpos;
         }
@@ -751,14 +754,12 @@ tele(void)
 
     /* Disable teleportation in stronghold && Vlad's Tower */
     if (noteleport_level(&youmonst)) {
-#ifdef WIZARD
         if (!wizard) {
-#endif
-        pline("A mysterious force prevents you from teleporting!");
-        return;
-#ifdef WIZARD
-    }
-#endif
+            pline("A mysterious force prevents you from teleporting!");
+            return;
+        } else {
+            pline("Overriding non-teleport flag.");
+        }
     }
 
     /* don't show trap if "Sorry..." */

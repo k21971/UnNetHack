@@ -4,6 +4,7 @@
 #include "hack.h"
 #include "sp_lev.h"
 #include "lev.h"    /* save & restore info */
+#include "dlb.h"
 
 /* from sp_lev.c, for fixup_special() */
 extern lev_region *lregions;
@@ -19,7 +20,7 @@ static int extend_spine(int [3][3], int, int, int);
 static boolean okay(coordxy, coordxy, int);
 static void maze0xy(coord *);
 static boolean put_lregion_here(coordxy, coordxy, coordxy,
-                                coordxy, coordxy, coordxy, xint16, boolean, d_level *, coordxy);
+                                coordxy, coordxy, coordxy, xint16, boolean, d_level *);
 static void move(coordxy *, coordxy *, int);
 static void setup_waterlevel(void);
 static void unsetup_waterlevel(void);
@@ -30,6 +31,7 @@ static void migrate_orc(struct monst *, unsigned long);
 static void stolen_booty(void);
 static boolean maze_inbounds(coordxy, coordxy);
 static void maze_remove_deadends(xint16);
+static boolean is_exclusion_zone(xint16, coordxy, coordxy);
 
 /* adjust a coordinate one step in the specified direction */
 #define mz_move(X, Y, dir) \
@@ -72,6 +74,72 @@ static boolean
 is_solid(coordxy x, coordxy y)
 {
     return (!isok(x, y) || IS_STWALL(levl[x][y].typ));
+}
+
+/* set map terrain type, handling lava lit, ice melt timers, etc */
+boolean
+set_levltyp(coordxy x, coordxy y, schar newtyp)
+{
+    if (isok(x, y) && newtyp >= STONE && newtyp < MAX_TYPE) {
+        if (CAN_OVERWRITE_TERRAIN(levl[x][y].typ)) {
+            schar oldtyp = levl[x][y].typ;
+            boolean was_ice = (levl[x][y].typ == ICE);
+
+            levl[x][y].typ = newtyp;
+            /* TODO?
+             *  if oldtyp used flags or horizontal differently from
+             *  from the way newtyp will use them, clear them.
+             */
+
+            if (IS_LAVA(newtyp)) {
+                levl[x][y].lit = 1;
+            }
+
+            if (was_ice && newtyp != ICE) {
+                spot_stop_timers(x, y, MELT_ICE_AWAY);
+            }
+            if ((IS_FOUNTAIN(oldtyp) != IS_FOUNTAIN(newtyp)) ||
+                 (IS_SINK(oldtyp) != IS_SINK(newtyp))) {
+                count_level_features(); /* level.flags.nfountains,nsinks */
+            }
+
+            return TRUE;
+        }
+#ifdef EXTRA_SANITY_CHECKS
+    } else {
+        impossible("set_levltyp(%d,%d,%d)%s%s",
+                   (int) x, (int) y, (int) newtyp,
+                   !isok(x, y) ? " not isok()" : "",
+                   (newtyp < STONE || newtyp >= MAX_TYPE) ? " bad type" : "");
+#endif /*EXTRA_SANITY_CHECKS*/
+    }
+    return FALSE;
+}
+
+/* set map terrain type and light state */
+boolean
+set_levltyp_lit(coordxy x, coordxy y, schar typ, schar lit)
+{
+    boolean ret = set_levltyp(x, y, typ);
+
+    if (ret && isok(x, y)) {
+        if (lit != SET_LIT_NOCHANGE) {
+#ifdef EXTRA_SANITY_CHECKS
+            if (lit < SET_LIT_NOCHANGE || lit > 1) {
+                impossible("set_levltyp_lit(%d,%d,%d,%d)",
+                           (int) x, (int) y, (int) typ, (int) lit);
+            }
+#endif /*EXTRA_SANITY_CHECKS*/
+            if (IS_LAVA(typ)) {
+                lit = 1;
+            } else if (lit == SET_LIT_RANDOM) {
+                lit = rn2(2);
+            }
+
+            levl[x][y].lit = lit;
+        }
+    }
+    return ret;
 }
 
 /*
@@ -123,6 +191,68 @@ extend_spine(int (*locale)[3], int wall_there, int dx, int dy)
     return spine;
 }
 
+/* Correct wall types so they extend and connect to each other */
+void
+fix_wall_spines(coordxy x1, coordxy y1, coordxy x2, coordxy y2)
+{
+    uchar type;
+    coordxy x, y;
+    struct rm *lev;
+    int (*loc_f)(coordxy, coordxy);
+    int bits;
+    int locale[3][3]; /* rock or wall status surrounding positions */
+
+    /*
+     * Value 0 represents a free-standing wall.  It could be anything,
+     * so even though this table says VWALL, we actually leave whatever
+     * typ was there alone.
+     */
+    static xint16 spine_array[16] = { VWALL, HWALL,    HWALL,    HWALL,
+                                      VWALL, TRCORNER, TLCORNER, TDWALL,
+                                      VWALL, BRCORNER, BLCORNER, TUWALL,
+                                      VWALL, TLWALL,   TRWALL,   CROSSWALL };
+
+    /* sanity check on incoming variables */
+    if (x1 < 0 || x2 >= COLNO || x1 > x2 || y1 < 0 || y2 >= ROWNO || y1 > y2) {
+        panic("wall_extends: bad bounds (%d,%d) to (%d,%d)", x1, y1, x2, y2);
+    }
+
+    /* set the correct wall type. */
+    for (x = x1; x <= x2; x++) {
+        for (y = y1; y <= y2; y++) {
+            lev = &levl[x][y];
+            type = lev->typ;
+            if (!(IS_WALL(type) && type != DBWALL))
+                continue;
+
+            /* set the locations TRUE if rock or wall or out of bounds */
+            loc_f = within_bounded_area(x, y, /* for baalz insect */
+                                   bughack.inarea.x1, bughack.inarea.y1,
+                                   bughack.inarea.x2, bughack.inarea.y2) ? iswall : iswall_or_stone;
+            locale[0][0] = (*loc_f)(x - 1, y - 1);
+            locale[1][0] = (*loc_f)(x, y - 1);
+            locale[2][0] = (*loc_f)(x + 1, y - 1);
+
+            locale[0][1] = (*loc_f)(x - 1, y);
+            locale[2][1] = (*loc_f)(x + 1, y);
+
+            locale[0][2] = (*loc_f)(x - 1, y + 1);
+            locale[1][2] = (*loc_f)(x, y + 1);
+            locale[2][2] = (*loc_f)(x + 1, y + 1);
+
+            /* determine if wall should extend to each direction NSEW */
+            bits = (extend_spine(locale, iswall(x, y - 1), 0, -1) << 3) |
+                   (extend_spine(locale, iswall(x, y + 1), 0, 1) << 2) |
+                   (extend_spine(locale, iswall(x + 1, y), 1, 0) << 1) |
+                    extend_spine(locale, iswall(x - 1, y), -1, 0);
+
+            /* don't change typ if wall is free-standing */
+            if (bits) {
+                lev->typ = spine_array[bits];
+            }
+        }
+    }
+}
 
 /*
  * Wall cleanup.  This function has two purposes: (1) remove walls that
@@ -244,22 +374,35 @@ maze0xy(coord *cc)
     return;
 }
 
-boolean
-bad_location(coordxy x, coordxy y, coordxy lx, coordxy ly, coordxy hx, coordxy hy, coordxy lax)
+static boolean
+is_exclusion_zone(xint16 type, coordxy x, coordxy y)
 {
-    return((boolean)(t_at(x, y) || invocation_pos(x, y) ||
-                     within_bounded_area(x, y, lx, ly, hx, hy) ||
-                     (lax < 2 && IS_FURNITURE(levl[x][y].typ)) ||
-                     !((levl[x][y].typ == CORR && level.flags.is_maze_lev) ||
-                       levl[x][y].typ == ROOM || levl[x][y].typ == AIR ||
-                       (lax && (levl[x][y].typ == ICE || levl[x][y].typ == CLOUD)) ||
-                       ((lax > 1) && (ACCESSIBLE(levl[x][y].typ) &&
-                                      levl[x][y].typ != STAIRS &&
-                                      levl[x][y].typ != LADDER)) ||
-                       ((lax > 2) && (levl[x][y].typ == POOL || levl[x][y].typ == MOAT ||
-                                      levl[x][y].typ == WATER || levl[x][y].typ == LAVAPOOL ||
-                                      levl[x][y].typ == BOG))
-                       )));
+    struct exclusion_zone *ez = ge.exclusion_zones;
+
+    while (ez) {
+        if (((type == LR_DOWNTELE && (ez->zonetype == LR_DOWNTELE || ez->zonetype == LR_TELE)) ||
+              (type == LR_UPTELE && (ez->zonetype == LR_UPTELE || ez->zonetype == LR_TELE)) ||
+              type == ez->zonetype) &&
+             within_bounded_area(x, y, ez->lx, ez->ly, ez->hx, ez->hy)) {
+            return TRUE;
+        }
+        ez = ez->next;
+    }
+    return FALSE;
+}
+
+boolean
+bad_location(
+    coordxy x, coordxy y,
+    coordxy nlx, coordxy nly, coordxy nhx, coordxy nhy)
+{
+    return (boolean) (occupied(x, y) ||
+                      within_bounded_area(x, y, nlx, nly, nhx, nhy) ||
+                      is_open_air(x, y) ||
+                      !((levl[x][y].typ == CORR && level.flags.is_maze_lev) ||
+                        levl[x][y].typ == ROOM ||
+                        levl[x][y].typ == ICE ||
+                        levl[x][y].typ == AIR));
 }
 
 /** Pick a location in area (lx, ly, hx, hy) but not in (nlx, nly, nhx, nhy)
@@ -276,7 +419,6 @@ place_lregion(
     int trycnt;
     boolean oneshot;
     coordxy x, y;
-    int lax = 0;
 
     if (!lx) { /* default to whole level */
         /*
@@ -294,27 +436,25 @@ place_lregion(
         hy = ROWNO - 1;
     }
 
-    do {
-        /* first a probabilistic approach */
-        oneshot = (lx == hx && ly == hy);
-        for (trycnt = 0; trycnt < 200; trycnt++) {
-            x = rn1((hx - lx) + 1, lx);
-            y = rn1((hy - ly) + 1, ly);
-            if (put_lregion_here(x, y, nlx, nly, nhx, nhy, rtype, oneshot, lev, lax)) {
+    /* first a probabilistic approach */
+    oneshot = (lx == hx && ly == hy);
+    for (trycnt = 0; trycnt < 200; trycnt++) {
+        x = rn1((hx - lx) + 1, lx);
+        y = rn1((hy - ly) + 1, ly);
+        if (put_lregion_here(x, y, nlx, nly, nhx, nhy, rtype, oneshot, lev)) {
+            return TRUE;
+        }
+    }
+
+    /* then a deterministic one */
+    oneshot = TRUE;
+    for (x = lx; x <= hx; x++) {
+        for (y = ly; y <= hy; y++) {
+            if (put_lregion_here(x, y, nlx, nly, nhx, nhy, rtype, oneshot, lev)) {
                 return TRUE;
             }
         }
-
-        /* then a deterministic one */
-        oneshot = TRUE;
-        for (x = lx; x <= hx; x++) {
-            for (y = ly; y <= hy; y++) {
-                if (put_lregion_here(x, y, nlx, nly, nhx, nhy, rtype, oneshot, lev, lax)) {
-                    return TRUE;
-                }
-            }
-        }
-    } while (lax++ < 4);
+    }
 
     return FALSE;
 }
@@ -325,12 +465,11 @@ put_lregion_here(
     coordxy nhx, coordxy nhy,
     xint16 rtype,
     boolean oneshot,
-    d_level *lev,
-    coordxy lax)
+    d_level *lev)
 {
     struct monst *mtmp;
 
-    if (bad_location(x, y, nlx, nly, nhx, nhy, lax)) {
+    if (bad_location(x, y, nlx, nly, nhx, nhy) || is_exclusion_zone(rtype, x, y)) {
         if (!oneshot) {
             return FALSE;   /* caller should try again */
         } else {
@@ -342,7 +481,7 @@ put_lregion_here(
             if (t && t->ttyp != MAGIC_PORTAL && t->ttyp != VIBRATING_SQUARE) {
                 deltrap(t);
             }
-            if (bad_location(x, y, nlx, nly, nhx, nhy, lax)) {
+            if (bad_location(x, y, nlx, nly, nhx, nhy) || is_exclusion_zone(rtype, x, y)) {
                 return FALSE;
             }
         }
@@ -370,7 +509,7 @@ put_lregion_here(
         break;
     case LR_DOWNSTAIR:
     case LR_UPSTAIR:
-        mkstairs(x, y, (char)rtype, (struct mkroom *)0);
+        mkstairs(x, y, (char)rtype, (struct mkroom *)0, FALSE);
         break;
     case LR_BRANCH:
         place_branch(Is_branchlev(&u.uz), x, y);
@@ -1073,7 +1212,7 @@ maze_remove_deadends(xint16 typ)
  * TODO: rewrite walkfrom so it works on temp space, not levl
  */
 void
-create_maze(int corrwid, int wallthick)
+create_maze(int corrwid, int wallthick, boolean rmdeadends)
 {
     int x,y;
     coord mm;
@@ -1082,6 +1221,14 @@ create_maze(int corrwid, int wallthick)
     int rdx = 0;
     int rdy = 0;
     int scale;
+
+    if (corrwid == -1) {
+        corrwid = rnd(4);
+    }
+
+    if (wallthick == -1) {
+        wallthick = rnd(4) - corrwid;
+    }
 
     if (wallthick < 1) {
         wallthick = 1;
@@ -1121,7 +1268,7 @@ create_maze(int corrwid, int wallthick)
     maze0xy(&mm);
     walkfrom((int) mm.x, (int) mm.y, 0);
 
-    if (!rn2(5)) {
+    if (rmdeadends) {
         maze_remove_deadends((level.flags.corrmaze) ? CORR : ROOM);
     }
 
@@ -1232,10 +1379,24 @@ makemaz(const char *s)
 #endif
 
     if (*protofile) {
+        char lua_protofile[20];
+        Strcpy(lua_protofile, protofile);
+        Strcat(lua_protofile, LUA_EXT);
+
         check_ransacked(protofile);
         Strcat(protofile, LEV_EXT);
         in_mk_rndvault = FALSE;
-        if (load_special(protofile)) {
+
+        if (dlb_fexists(NH_DATAAREA, lua_protofile)) {
+            if (load_special_lua(lua_protofile)) {
+                /* some levels can end up with monsters
+                   on dead mon list, including light source monsters */
+                dmonsfree();
+                return; /* no mazification right now */
+            }
+        }
+
+        if (load_special_des(protofile)) {
             /* some levels can end up with monsters
                on dead mon list, including light source monsters */
             dmonsfree();
@@ -1269,10 +1430,10 @@ makemaz(const char *s)
     wallification(2, 2, x_maze_max, y_maze_max);
 #endif
     mazexy(&mm);
-    mkstairs(mm.x, mm.y, 1, (struct mkroom *)0);        /* up */
+    mkstairs(mm.x, mm.y, 1, (struct mkroom *)0, FALSE); /* up */
     if (!Invocation_lev(&u.uz)) {
         mazexy(&mm);
-        mkstairs(mm.x, mm.y, 0, (struct mkroom *)0);    /* down */
+        mkstairs(mm.x, mm.y, 0, (struct mkroom *)0, FALSE); /* down */
     } else {    /* choose "vibrating square" location */
 #define x_maze_min 2
 #define y_maze_min 2
@@ -1500,13 +1661,15 @@ mazexy(coord *cc)
 }
 
 void
-get_level_extends(int *left, int *top, int *right, int *bottom)
+get_level_extends(
+    coordxy *left, coordxy *top,
+    coordxy *right, coordxy *bottom)
 {
-    int x, y;
+    coordxy x, y;
     unsigned typ;
     struct rm *lev;
     boolean found, nonwall;
-    int xmin, xmax, ymin, ymax;
+    coordxy xmin, xmax, ymin, ymax;
 
     found = nonwall = FALSE;
     for (xmin = 0; !found && xmin <= COLNO; xmin++) {
@@ -1593,8 +1756,8 @@ get_level_extends(int *left, int *top, int *right, int *bottom)
 void
 bound_digging(void)
 {
-    int x, y;
-    int xmin, xmax, ymin, ymax;
+    coordxy x, y;
+    coordxy xmin, xmax, ymin, ymax;
 
     if (Is_earthlevel(&u.uz)) {
         return; /* everything diggable here */

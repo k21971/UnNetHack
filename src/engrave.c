@@ -497,7 +497,7 @@ read_engr_at(coordxy x, coordxy y)
                 nomul(0, 0);
             }
             if (moves > 5) {
-                check_tutorial_message(QT_T_ENGRAVING);
+                check_tutorial_message("qt_tutorial_engraving");
             }
         }
     }
@@ -674,9 +674,13 @@ engrave(const char *engraving, boolean fingers)
         You_cant("write on the %s!", surface(u.ux, u.uy));
         return 0;
     }
-    if (Is_airlevel(&u.uz) || Is_waterlevel(&u.uz) /* in bubble */) {
+    if (Is_airlevel(&u.uz) || Is_waterlevel(&u.uz) || /* in bubble */
+         is_open_air(u.ux, u.uy)) {
         You_cant("write in thin air!");
         return 0;
+    } else if (IS_MAGIC_PLATFORM(levl[u.ux][u.uy].typ)) {
+        You_cant("make any mark on the magic surface.");
+        return FALSE;
     } else if (!accessible(u.ux, u.uy)) {
         /* stone, tree, wall, secret corridor, pool, lava, bars */
         You_cant("write here.");

@@ -10,6 +10,7 @@
 #define hugemonst(ptr)      ((ptr)->msize >= MZ_HUGE)
 
 #define pm_resistance(ptr, typ)  (((ptr)->mresists & (typ)) != 0)
+#define immune_poisongas(ptr) ((ptr) == &mons[PM_HEZROU] || (ptr) == &mons[PM_VROCK])
 
 #define resists_fire(mon)   ((((mon)->data->mresists | (mon)->mextrinsics) & MR_FIRE) != 0)
 #define resists_cold(mon)   ((((mon)->data->mresists | (mon)->mextrinsics) & MR_COLD) != 0)
@@ -35,6 +36,8 @@
 #define is_flyer(ptr)       (((ptr)->mflags1 & M1_FLY) != 0L)
 #define is_floater(ptr)     ((ptr)->mlet == S_EYE)
 #define is_clinger(ptr)     (((ptr)->mflags1 & M1_CLING) != 0L)
+#define grounded(ptr) (!is_flyer(ptr) && !is_floater(ptr) \
+                       && (!is_clinger(ptr) || !has_ceiling(&u.uz)))
 #define is_swimmer(ptr)     (((ptr)->mflags1 & M1_SWIM) != 0L)
 #define breathless(ptr)     (((ptr)->mflags1 & M1_BREATHLESS) != 0L)
 #define amphibious(ptr)     (((ptr)->mflags1 & (M1_AMPHIBIOUS | M1_BREATHLESS)) != 0L)
@@ -310,5 +313,14 @@
                              ((ptr) == &mons[PM_BLACK_MARKETEER] || \
                               (ptr) == &mons[PM_ONE_EYED_SAM]))
 #endif /* BLACKMARKET */
+
+#define PM_ALIGNED_CLERIC PM_ALIGNED_PRIEST
+#define PM_HIGH_CLERIC PM_HIGH_PRIEST
+#define PM_ELVEN_MONARCH PM_ELVENKING
+#define PM_ELF_NOBLE PM_ELF_LORD
+
+/* The monster is covetous, but should not warp, heal, or otherwise use
+ * tactics(). */
+#define covetous_nonwarper(ptr) ((ptr) == &mons[PM_SCHLIEMANN])
 
 #endif /* MONDATA_H */

@@ -37,10 +37,12 @@ const struct Role roles[] = {
         "Quetzalcoatl", "Camaxtli", "Huhetotl", /* Central American */
         "Arc", "the College of Archeology", "the Tomb of the Toltec Kings",
         PM_ARCHEOLOGIST, NON_PM, NON_PM,
-        PM_LORD_CARNARVON, PM_STUDENT, PM_MINION_OF_HUHETOTL,
+        PM_LORD_CARNARVON,
+        PM_STUDENT,
+        PM_SCHLIEMANN,
         ART_ITLACHIAYAQUE,
-        MH_HUMAN|MH_DWARF|MH_GNOME|MH_VAMPIRE | ROLE_MALE|ROLE_FEMALE |
-        ROLE_LAWFUL|ROLE_NEUTRAL,
+        MH_HUMAN | MH_DWARF | MH_GNOME | MH_VAMPIRE | ROLE_MALE | ROLE_FEMALE |
+         ROLE_LAWFUL | ROLE_NEUTRAL,
         /* Str Int Wis Dex Con Cha */
         {   7, 10, 10,  7,  7,  7 },
         {  20, 20, 20, 10, 20, 10 },
@@ -349,7 +351,9 @@ const struct Role roles[] = {
             {"Lord",        "Lady"}
         },
         "Tyr", "Odin", "Loki", /* Norse */
-        "Val", "the Shrine of Destiny", "the cave of Surtur",
+        "Val",
+        "the Shrine of Destiny",
+        "the Shattered Bridge",
         PM_VALKYRIE, NON_PM, NON_PM /*PM_WINTER_WOLF_CUB*/,
         PM_NORN, PM_WARRIOR, PM_LORD_SURTUR,
         ART_ORB_OF_FATE,

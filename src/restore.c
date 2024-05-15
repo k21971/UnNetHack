@@ -267,6 +267,7 @@ restobj(NHFILE *nhfp, struct obj *otmp)
         Mread(nhfp->fd, otmp, sizeof *otmp);
     }
 
+    otmp->lua_ref_cnt = 0;
     /* next object pointers are invalid; otmp->cobj needs to be left
        as is--being non-null is key to restoring container contents */
     otmp->nobj = otmp->nexthere = (struct obj *) 0;
@@ -971,7 +972,6 @@ dorecover(NHFILE *nhfp)
      */
     inven_inuse(FALSE);
 
-    load_qtlist();  /* re-load the quest text info */
     reset_attribute_clock();
     /* Set up the vision internals, after levl[] data is loaded
        but before docrt(). */

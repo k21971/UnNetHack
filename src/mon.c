@@ -183,6 +183,46 @@ remove_monster(coordxy x, coordxy y)
     level.monsters[x][y] = (struct monst *)0;
 }
 
+/* Would monster be OK with poison gas? */
+/* Does not check for actual poison gas at the location. */
+/* Returns one of M_POISONGAS_foo */
+int
+m_poisongas_ok(struct monst *mtmp)
+{
+    int px, py;
+    boolean is_you = (mtmp == &youmonst);
+
+    /* Non living, non breathing, immune monsters are not concerned */
+    if (nonliving(mtmp->data) ||
+         is_vampshifter(mtmp) ||
+         breathless(mtmp->data) ||
+         immune_poisongas(mtmp->data)) {
+        return M_POISONGAS_OK;
+    }
+    /* not is_swimmer(); assume that non-fish are swimming on
+       the surface and breathing the air above it periodically
+       unless located at water spot on plane of water */
+    px = is_you ? u.ux : mtmp->mx;
+    py = is_you ? u.uy : mtmp->my;
+    if ((mtmp->data->mlet == S_EEL || Is_waterlevel(&u.uz)) && is_pool(px, py)) {
+        return M_POISONGAS_OK;
+    }
+    /* exclude monsters with poison gas breath attack:
+       adult green dragon and Chromatic Dragon (and iron golem,
+       but nonliving() and breathless() tests also catch that) */
+    if (attacktype_fordmg(mtmp->data, AT_BREA, AD_DRST) ||
+         attacktype_fordmg(mtmp->data, AT_BREA, AD_RBRE)) {
+        return M_POISONGAS_OK;
+    }
+    if (is_you && (u.uinvulnerable || Breathless || Underwater)) {
+        return M_POISONGAS_OK;
+    }
+    if (is_you ? Poison_resistance : resists_poison(mtmp)) {
+        return M_POISONGAS_MINOR;
+    }
+    return M_POISONGAS_BAD;
+}
+
 /* return True if mon is capable of converting other monsters into zombies */
 boolean
 zombie_maker(struct monst *mon)
@@ -566,7 +606,7 @@ default_1:
 int
 minliquid(struct monst *mtmp)
 {
-    boolean inpool, inlava, inswamp, infountain, grounded;
+    boolean inpool, inlava, inswamp, infountain, grounded, inair;
 
     grounded = !is_flyer(mtmp->data) && !is_floater(mtmp->data);
     /* there's no "above the surface" on the plane of water */
@@ -574,6 +614,7 @@ minliquid(struct monst *mtmp)
     inlava = is_lava(mtmp->mx, mtmp->my) && grounded;
     inswamp = is_swamp(mtmp->mx, mtmp->my) && grounded;
     infountain = IS_FOUNTAIN(levl[mtmp->mx][mtmp->my].typ);
+    inair = (is_open_air(mtmp->mx, mtmp->my) && grounded(mtmp->data));
 
     /* Flying and levitation keeps our steed out of the liquid
        (but not water-walking or swimming; note: if hero is in a
@@ -705,6 +746,9 @@ minliquid(struct monst *mtmp)
             water_damage_chain(mtmp->minvent, FALSE);
             return 0;
         }
+    } else if (inair) { /* technically a gas, but... */
+        mon_aireffects(mtmp);
+        return 1; /* either sent to another level or dead */
     } else {
         /* but eels have a difficult time outside */
         if (mtmp->data->mlet == S_EEL && !Is_waterlevel(&u.uz)) {
@@ -1491,6 +1535,10 @@ nexttry:    /* eels prefer the water, but if there is no water nearby,
                 continue;
             if(nx != 0 && ny != 0 && canseemon(mon) && quantumlock)
                 continue;
+            /* avoid open air if mon would fall into it */
+            if (is_open_air(nx, ny) && grounded(mdat)) {
+                continue;
+            }
             if((is_pool(nx, ny) == wantpool || poolok) &&
                (lavaok || !is_lava(nx, ny))) {
                 int dispx, dispy;
@@ -3891,7 +3939,7 @@ pickvampshape(struct monst *mon)
         wolfchance = 3;
     /* fall through */
     case PM_VAMPIRE_LORD: /* vampire lord or Vlad can become wolf */
-        if (!rn2(wolfchance) && !uppercase_only) {
+        if (!rn2(wolfchance) && !is_open_air(mon->mx, mon->my)) {
             mndx = PM_WOLF;
             break;
         }
@@ -4805,4 +4853,42 @@ usmellmon(struct permonst *mdat)
     return msg_given ? TRUE : FALSE;
 }
 
-/*mon.c*/
+/* u_aireffects() equivalent for monsters. */
+void
+mon_aireffects(struct monst *mtmp)
+{
+    d_level destination;
+    boolean to_nowhere, cansee = canseemon(mtmp);
+
+    find_level_beneath(&u.uz, &destination);
+    to_nowhere = (destination.dnum == 0 && destination.dlevel == 0);
+
+    if (cansee) {
+        pline("Air currents pull %s down.", mon_nam(mtmp));
+    }
+    mtmp->mhp -= d(20, 12);
+    mtmp->mstun = 1;
+
+    if (DEADMONSTER(mtmp) || to_nowhere) {
+        /* Send items to the lower floor (possibly breaking them) silently,
+         * rather than letting xkilled() drop them noisily */
+        struct obj *otmp, *nobj;
+        for (otmp = mtmp->minvent; otmp; otmp = nobj) {
+            nobj = otmp->nobj;
+            obj_extract_self(otmp);
+            (void) obj_aireffects(otmp, FALSE);
+        }
+        /* No corpse is dropped here, because it would give a message about the
+         * corpse falling away and disappearing which doesn't make any sense.
+         * Assume it splatted on the floor into an unrecognizable state. */
+        if (flags.mon_moving) {
+            mongone(mtmp);
+        } else {
+            xkilled(mtmp, XKILL_NOMSG | XKILL_NOCORPSE);
+        }
+    } else {
+        migrate_to_level(mtmp, ledger_no(&destination), MIGR_RANDOM, (coord *) 0);
+    }
+}
+
+/* mon.c */

@@ -460,6 +460,14 @@ dochug(struct monst *mtmp)
         (void) rloc(mtmp, RLOC_MSG);
         return 0;
     }
+
+    if (is_open_air(mtmp->mx, mtmp->my) &&
+         grounded(mdat) &&
+         !(mtmp == u.usteed && (Flying || Levitation))) {
+        mon_aireffects(mtmp);
+        return 0; /* dead or gone */
+    }
+
     if (mdat->msound == MS_SHRIEK && !um_dist(mtmp->mx, mtmp->my, 1)) {
         m_respond(mtmp);
     }
@@ -1068,7 +1076,9 @@ m_move(struct monst *mtmp, int after)
         } else {
             mmoved = 0;
         }
-        goto postmov;
+        if (!covetous_nonwarper(ptr)) {
+            goto postmov;
+        }
     }
 
     /* and for the priest */
