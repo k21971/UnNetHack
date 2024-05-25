@@ -435,7 +435,7 @@ if test "$enable_dump" != "no" ; then
 	NETHACK_ARG(dump-text,[Dump a text file],DUMP_TEXT_LOG,yes)
 	NETHACK_ARG(dump-html,[Dump an HTML file],DUMP_HTML_LOG,yes)
 	if test "$enable_dump_html" != "no" ; then
-		NETHACK_ARG_WITH_PARAM(dump-html-css-file,[Path to the css dump file],DUMP_HTML_CSS_FILE,yes,FILE,"/unnethack-6.0.11/unnethack_dump.css")
+		NETHACK_ARG_WITH_PARAM(dump-html-css-file,[Path to the css dump file],DUMP_HTML_CSS_FILE,yes,FILE,"/unnethack-6.0.12/unnethack_dump.css")
 		NETHACK_ARG(dump-html-css-embedded,[CSS file should be included in the HTML dump],DUMP_HTML_CSS_EMBEDDED,yes)
 	fi
 fi
@@ -461,7 +461,7 @@ if test "$enable_tty_graphics" != "no" -a "$host_os" != mingw32; then
 fi
 
 
-NETHACK_ARG_WITH_PARAM(whereis-file,[Log information about running games],WHEREIS_FILE,yes,FILE,["/unnethack-6.0.11/var/whereis/%n.whereis"])
+NETHACK_ARG_WITH_PARAM(whereis-file,[Log information about running games],WHEREIS_FILE,yes,FILE,["/unnethack-6.0.12/var/whereis/%n.whereis"])
 
 NETHACK_ARG_WITH_PARAM(wizmode,[enable wizard mode for the specified user],WIZARD,no,USER,[wizard])
 

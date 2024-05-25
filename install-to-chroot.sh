@@ -21,11 +21,11 @@ COMPRESSBIN="/bin/gzip"
 NH_GIT="/home/build/UnNetHack"
 NH_BRANCH="master"
 # HACKDIR from include/config.h; aka nethack subdir inside chroot
-NHSUBDIR="unnethack-6.0.11"
+NHSUBDIR="unnethack-6.0.12"
 # VAR_PLAYGROUND from include/unixconf.h
-NH_VAR_PLAYGROUND="/unnethack-6.0.11/var"
+NH_VAR_PLAYGROUND="/unnethack-6.0.12/var"
 # nhdat location
-NHDAT_DIR="/unnethack-6.0.11"
+NHDAT_DIR="/unnethack-6.0.12"
 # END OF CONFIG
 ##############################################################################
 
@@ -50,8 +50,8 @@ set -e
 umask 022
 
 echo "Creating inprogress and userdata directories"
-mkdir -p "$NAO_CHROOT/dgldir/inprogress-un6011"
-chown "$USRGRP" "$NAO_CHROOT/dgldir/inprogress-un6011"
+mkdir -p "$NAO_CHROOT/dgldir/inprogress-un6012"
+chown "$USRGRP" "$NAO_CHROOT/dgldir/inprogress-un6012"
 mkdir -p "$NAO_CHROOT/dgldir/extrainfo-un"
 chown "$USRGRP" "$NAO_CHROOT/dgldir/extrainfo-un"
 
@@ -83,6 +83,8 @@ chmod 644 "$NAO_CHROOT$NHDAT_DIR/sysconf"
 echo "Copying NetHack nhdat and .css files"
 cp "$NETHACK_GIT/dat/nhdat" "$NAO_CHROOT$NHDAT_DIR"
 chmod 644 "$NAO_CHROOT$NHDAT_DIR/nhdat"
+cp "$NETHACK_GIT/dat/license" "$NAO_CHROOT$NHDAT_DIR"
+chmod 644 "$NAO_CHROOT$NHDAT_DIR/license"
 cp "$NETHACK_GIT/dat/unnethack_dump.css" "$NAO_CHROOT$NHDAT_DIR"
 chmod 644 "$NAO_CHROOT$NHDAT_DIR/unnethack_dump.css"
 

@@ -1542,7 +1542,7 @@ Optional Features:
   --enable-dump-html      Dump an HTML file (default=yes)
   --enable-dump-html-css-file=FILE
                           Path to the css dump file (default=yes, default
-                          file=["/unnethack-6.0.11/unnethack_dump.css"])
+                          file=["/unnethack-6.0.12/unnethack_dump.css"])
   --enable-dump-html-css-embedded
                           CSS file should be included in the HTML dump
                           (default=yes)
@@ -1551,7 +1551,7 @@ Optional Features:
   --enable-utf8-glyphs    Enable UTF-8 glyphs in TTY (default=yes)
   --enable-whereis-file=FILE
                           Log information about running games (default=yes,
-                          default file=["/unnethack-6.0.11/var/whereis/%n.whereis"])
+                          default file=["/unnethack-6.0.12/var/whereis/%n.whereis"])
   --enable-wizmode=USER   enable wizard mode for the specified user
                           (default=no, default user=[wizard])
   --enable-file-areas     Place files in different directories (default=yes)
@@ -8694,10 +8694,10 @@ if test ${enable_dump_html_css_file+y}
 then :
   enableval=$enable_dump_html_css_file; if test "$enableval" != no; then enable_dump_html_css_file=yes;
          if test "$enableval" != yes; then dump_html_css_file=$enableval;
-         else dump_html_css_file="/unnethack-6.0.11/unnethack_dump.css"; fi;
+         else dump_html_css_file="/unnethack-6.0.12/unnethack_dump.css"; fi;
         else enable_dump_html_css_file=no; fi
 else case e in #(
-  e) enable_dump_html_css_file=yes;dump_html_css_file="/unnethack-6.0.11/unnethack_dump.css" ;;
+  e) enable_dump_html_css_file=yes;dump_html_css_file="/unnethack-6.0.12/unnethack_dump.css" ;;
 esac
 fi
 
@@ -8811,10 +8811,10 @@ if test ${enable_whereis_file+y}
 then :
   enableval=$enable_whereis_file; if test "$enableval" != no; then enable_whereis_file=yes;
          if test "$enableval" != yes; then whereis_file=$enableval;
-         else whereis_file="/unnethack-6.0.11/var/whereis/%n.whereis"; fi;
+         else whereis_file="/unnethack-6.0.12/var/whereis/%n.whereis"; fi;
         else enable_whereis_file=no; fi
 else case e in #(
-  e) enable_whereis_file=no;whereis_file="/unnethack-6.0.11/var/whereis/%n.whereis" ;;
+  e) enable_whereis_file=no;whereis_file="/unnethack-6.0.12/var/whereis/%n.whereis" ;;
 esac
 fi
 
