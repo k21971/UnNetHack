@@ -1922,6 +1922,7 @@ extern char *Ysimple_name2(struct obj *);
 extern char *simpleonames(struct obj *);
 extern char *ansimpleoname(struct obj *);
 extern char *thesimpleoname(struct obj *);
+extern char *actualoname(struct obj *) NONNULL NONNULLARG1;
 extern char *bare_artifactname(struct obj *);
 extern char *makeplural(const char *);
 extern char *makesingular(const char *);
@@ -2163,6 +2164,7 @@ extern short mixtype(struct obj *, struct obj *);
 #ifdef USE_TRAMPOLI
 extern int prayer_done(void);
 #endif
+extern void desecrate_altar(boolean, aligntyp);
 extern int dosacrifice(void);
 extern boolean can_pray(boolean);
 extern int dopray(void);
