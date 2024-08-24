@@ -556,6 +556,9 @@ hold_another_object(struct obj *obj, const char *drop_fmt, const char *drop_arg,
             if (hold_msg || drop_fmt) {
                 prinv(hold_msg, obj, oquan);
             }
+            /* obj made it into inventory and is staying there */
+            update_inventory();
+            (void) encumber_msg();
         }
     }
     return obj;
@@ -2033,6 +2036,8 @@ learn_unseen_invent(void)
 void
 update_inventory(void)
 {
+    int save_suppress_price;
+
     if (!program_state.in_moveloop) { /* not covered by suppress_map_output */
         return;
     }
@@ -2047,7 +2052,10 @@ update_inventory(void)
      * because curses uses that to disable a previous perm_invent window
      * (after toggle via 'O'; perhaps the options code should handle that).
      */
+    save_suppress_price = iflags.suppress_price;
+    iflags.suppress_price = 0;
     (*windowprocs.win_update_inventory)();
+    iflags.suppress_price = save_suppress_price;
 }
 
 static char
@@ -3555,7 +3563,9 @@ dfeature_at(coordxy x, coordxy y, char *buf)
     } else if (IS_SINK(ltyp)) {
         cmap = S_sink;                  /* "sink" */
     } else if (IS_ALTAR(ltyp)) {
-        Sprintf(altbuf, "altar to %s (%s)", a_gname_at(x, y),
+        Sprintf(altbuf, "%saltar to %s (%s)",
+                (lev->altarmask & AM_SANCTUM) ? "high " : "",
+                a_gname(),
                 align_str(Amask2align(lev->altarmask & ~AM_SHRINE)));
         dfeature = altbuf;
     } else if (stway) {
