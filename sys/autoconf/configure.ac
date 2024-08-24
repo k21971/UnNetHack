@@ -546,13 +546,13 @@ NETHACK_DIR_SET(bonesdir, bones, [GAMESDIR/bones],
 		FILE_AREA_BONES, [Location of bones files (rw)])
 
 NETHACK_DIR_SET(savesdir, saves, [GAMESDIR/saves],
-		[${FILE_AREA_VAR}/saves],
-		[FILE_AREA_VAR"/saves"],
+		[${FILE_AREA_VAR}/save],
+		[FILE_AREA_VAR"/save"],
 		FILE_AREA_SAVE, [Location of save files (rw)])
 
 NETHACK_DIR_SET(leveldir, level, [GAMESDIR/level],
-		[${FILE_AREA_VAR}/level],
-		[FILE_AREA_VAR"/level"],
+		[${FILE_AREA_VAR}],
+		[FILE_AREA_VAR],
 		FILE_AREA_LEVL, [Location of level files (rw)])
 
 NETHACK_DIR_SET(sharedir, share, [DATADIR],

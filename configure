@@ -9080,7 +9080,7 @@ if test ${with_savesdir+y}
 then :
   withval=$with_savesdir; autoconf_val='"'$withval'"'
 else case e in #(
-  e) withval=${FILE_AREA_VAR}/saves;autoconf_val='FILE_AREA_VAR"/saves"' ;;
+  e) withval=${FILE_AREA_VAR}/save;autoconf_val='FILE_AREA_VAR"/save"' ;;
 esac
 fi
 
@@ -9115,7 +9115,7 @@ if test ${with_leveldir+y}
 then :
   withval=$with_leveldir; autoconf_val='"'$withval'"'
 else case e in #(
-  e) withval=${FILE_AREA_VAR}/level;autoconf_val='FILE_AREA_VAR"/level"' ;;
+  e) withval=${FILE_AREA_VAR};autoconf_val='FILE_AREA_VAR' ;;
 esac
 fi
 
