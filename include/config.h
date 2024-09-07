@@ -474,7 +474,6 @@ typedef long glyph_t;
 #define TUTORIAL_MODE /* Alex Smith */
 #define ELBERETH_CONDUCT /* Track the number of times the player engraves Elbereth. - Ray Kulhanek */
 #define SHOW_WEIGHT
-#define NHL_SANDBOX
 /* End of Section 6 */
 
 #include "global.h" /* Define everything else according to choices above */
