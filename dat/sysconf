@@ -75,6 +75,3 @@ STATUSCOLOR=ride:brown
 STATUSCOLOR=frozen:lightblue&inverse
 STATUSCOLOR=elbereth:green&inverse
 
-# Disable bones
-OPTIONS=nobones
-
