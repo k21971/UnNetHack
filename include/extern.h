@@ -21,10 +21,12 @@ extern char *fmt_ptr(const genericptr);
 
 extern void early_init(void);
 extern void moveloop(boolean);
+extern void moveloop_core(void);
 extern void stop_occupation(void);
 extern void display_gamewindows(void);
 extern void newgame(void);
 extern void welcome(boolean);
+extern struct obj * which_obj_prevents_regeneration(void);
 extern boolean can_regenerate(void);
 #if defined(RECORD_REALTIME) || defined(REALTIME_ON_BOTL)
 extern time_t get_realtime(void);
@@ -123,6 +125,7 @@ extern const char * beautiful(void);
 extern int uhp(void);
 extern int uhpmax(void);
 extern boolean extremeattr(int);
+extern char *from_what(int);
 extern void uchangealign(int, int);
 
 /* ### ball.c ### */
