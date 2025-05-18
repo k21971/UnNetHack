@@ -4476,6 +4476,9 @@ newcham(
             }
         }
     }
+    if (mtmp == u.usteed) {
+        poly_steed(mtmp, olddata);
+    }
 
     return 1;
 }
@@ -4897,6 +4900,15 @@ mon_aireffects(struct monst *mtmp)
     } else {
         migrate_to_level(mtmp, ledger_no(&destination), MIGR_RANDOM, (coord *) 0);
     }
+}
+
+/* setting misc_worn_check's I_SPECIAL bit flags a monster to reassess
+   and potentially re-equip gear at the start of its next move;
+   this hides the details of that */
+void
+check_gear_next_turn(struct monst *mon)
+{
+    mon->misc_worn_check |= I_SPECIAL;
 }
 
 /* mon.c */

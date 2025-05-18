@@ -11,6 +11,7 @@ static boolean minimal_enlightenment(void);
 
 static void enlght_line(const char *, const char *, const char *, const char *);
 static char *enlght_combatinc(const char *, int, int, char *);
+static void enlght_halfdmg(int, int);
 
 /* allmain.c */
 extern int monclock;
@@ -136,6 +137,53 @@ enlght_combatinc(const char *inctyp, int incamt, int final, char *outbuf)
     return outbuf;
 }
 
+/* report half physical or half spell damage */
+static void
+enlght_halfdmg(int category, int final)
+{
+    const char *category_name;
+    char buf[BUFSZ];
+
+    switch (category) {
+    case HALF_PHDAM:
+        category_name = "physical";
+        break;
+
+    case HALF_SPDAM:
+        category_name = "spell";
+        break;
+
+    default:
+        category_name = "unknown";
+        break;
+    }
+    Sprintf(buf, " %s %s damage", (final || wizard) ? "half" : "reduced", category_name);
+    enl_msg(You_, "take", "took", buf, from_what(category));
+}
+
+/* check whether hero is wearing something that player definitely knows
+   confers the target property; item must have been seen and its type
+   discovered but it doesn't necessarily have to be fully identified */
+static boolean
+cause_known(int propindx) /* index of a property which can be conveyed by worn item */
+{
+    struct obj *o;
+    long mask = W_ARMOR | W_AMUL | W_RING | W_TOOL;
+
+    /* simpler than from_what()/what_gives(); we don't attempt to
+       handle artifacts and we deliberately ignore wielded items */
+    for (o = invent; o; o = o->nobj) {
+        if (!(o->owornmask & mask)) {
+            continue;
+        }
+        if ((int) objects[o->otyp].oc_oprop == propindx &&
+             objects[o->otyp].oc_name_known && o->dknown) {
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
 void
 enlightenment(int final, boolean want_disp)
             /* 0 => still in progress; 1 => over, survived; 2 => dead */
@@ -143,6 +191,7 @@ enlightenment(int final, boolean want_disp)
 {
     int ltmp;
     char buf[BUFSZ];
+    boolean magic = FALSE;
 
     want_display = want_disp;
 
@@ -367,8 +416,14 @@ enlightenment(int final, boolean want_disp)
         enl_msg(buf, " has", " had", " wounded legs", "");
     }
 #endif
-    if (Sleeping) {
-        enl_msg("You ", "fall", "fell", " asleep", "");
+    if (Sleepy) {
+        if (magic || cause_known(SLEEPY)) {
+            Strcpy(buf, from_what(SLEEPY));
+            if (wizard) {
+                Sprintf(eos(buf), " (%ld)", (HSleepy & TIMEOUT));
+            }
+            enl_msg("You ", "fall", "fell", " asleep uncontrollably", buf);
+        }
     }
     if (Hunger) {
         enl_msg("You hunger", "", "ed", " rapidly", "");
@@ -417,6 +472,9 @@ enlightenment(int final, boolean want_disp)
     }
     if (u.umconf) {
         you_are("going to confuse monsters", "");
+    }
+    if (flags.confused_reading) {
+        you_are("confused from reading magic", "");
     }
 
     /*** Appearance and behavior ***/
@@ -555,6 +613,12 @@ enlightenment(int final, boolean want_disp)
         } else if (prot > 0) {
             you_are("protected", "");
         }
+    }
+    if (Half_physical_damage) {
+        enlght_halfdmg(HALF_PHDAM, final);
+    }
+    if (Half_spell_damage) {
+        enlght_halfdmg(HALF_SPDAM, final);
     }
     if (Half_gas_damage) {
         enl_msg(You_, "take", "took", " reduced poison gas damage", "");

@@ -433,6 +433,9 @@ touchfood(struct obj *otmp)
             sellobj_state(SELL_DONTSELL);
             dropy(otmp);
             sellobj_state(SELL_NORMAL);
+            if (otmp->where == OBJ_DELETED) {
+                otmp = (struct obj *) NULL;
+            }
         } else {
             otmp->nomerge = 1; /* used to prevent merge */
             otmp = addinv(otmp);
@@ -2280,15 +2283,15 @@ eataccessory(struct obj *otmp)
             choke(otmp);
             break;
         case AMULET_OF_RESTFUL_SLEEP: { /* another bad idea! */
-            long newnap = (long) rnd(100), oldnap = (HSleeping & TIMEOUT);
+            long newnap = (long) rnd(100), oldnap = (HSleepy & TIMEOUT);
 
-            if (!(HSleeping & FROMOUTSIDE)) {
+            if (!(HSleepy & FROMOUTSIDE)) {
                 accessory_has_effect(otmp);
             }
-            HSleeping |= FROMOUTSIDE;
+            HSleepy |= FROMOUTSIDE;
             /* might also be wearing one; use shorter of two timeouts */
             if (newnap < oldnap || oldnap == 0L) {
-                HSleeping = (HSleeping & ~TIMEOUT) | newnap;
+                HSleepy = (HSleepy & ~TIMEOUT) | newnap;
             }
             break;
         }

@@ -66,8 +66,11 @@ struct obj {
 #define OBJ_MIGRATING  5 /* object sent off to another level */
 #define OBJ_BURIED     6 /* object buried */
 #define OBJ_ONBILL     7 /* object on shk bill */
-#define OBJ_LUAFREE    8   /* object has been dealloc'd, but is ref'd by lua */
-#define NOBJ_STATES    9
+#define OBJ_LUAFREE    8 /* object has been dealloc'd, but is ref'd by lua */
+#define OBJ_DELETED    9 /* object is marked for deletion by dobjsfree() */
+    /* note: OBJ_xxx values are used in obj_state_names[] in mkobj.c
+       so adding, removing, or renumbering these needs to change that too */
+#define NOBJ_STATES   10
     xint16 timed;        /* # of fuses (timers) attached to this obj */
 
     Bitfield(cursed, 1);
@@ -386,6 +389,12 @@ struct obj {
 #define is_plural(o)    ((o)->quan > 1 || \
                          (o)->oartifact == ART_EYES_OF_THE_OVERWORLD)
 #define pair_of(o) ((o)->otyp == LENSES || is_gloves(o) || is_boots(o))
+
+/* mummy wrappings are more versatile sizewise than other cloaks */
+#define WrappingAllowed(mptr) \
+    (humanoid(mptr) && (mptr)->msize >= MZ_SMALL && (mptr)->msize <= MZ_HUGE \
+     && !noncorporeal(mptr) && (mptr)->mlet != S_CENTAUR                     \
+     && (mptr) != &mons[PM_WINGED_GARGOYLE] && (mptr) != &mons[PM_MARILITH])
 
 /* Flags for get_obj_location(). */
 #define CONTAINED_TOO 0x1

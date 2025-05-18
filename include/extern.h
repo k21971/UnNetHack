@@ -6,6 +6,8 @@
 
 #define E extern
 
+#include "nhlua.h"
+
 /* ### alloc.c ### */
 
 #if 0
@@ -100,6 +102,7 @@ extern void retouch_equipment(int);
 extern void mkot_trap_warn(void);
 extern boolean is_magic_key(struct monst *, struct obj *);
 extern struct obj *has_magic_key(struct monst *);
+extern boolean is_art(struct obj *, int);
 
 /* ### attrib.c ### */
 
@@ -441,11 +444,14 @@ extern char *noit_Monnam(struct monst *);
 extern char *noname_monnam(struct monst *, int);
 extern char *m_monnam(struct monst *);
 extern char *y_monnam(struct monst *);
+extern char *YMonnam(struct monst *) NONNULLARG1;
 extern char *Adjmonnam(struct monst *, const char *);
 extern char *Amonnam(struct monst *);
 extern char *a_monnam(struct monst *);
 extern char *distant_monnam(struct monst *, int, char *);
 extern char *mon_nam_too(struct monst *, struct monst *);
+extern char *monverbself(struct monst *, char *,
+                         const char *, const char *) NONNULLARG123;
 extern char *minimal_monnam(struct monst *, boolean);
 extern const char *rndmonnam(void);
 extern const char *hcolor(const char *);
@@ -1480,6 +1486,7 @@ extern void add_to_buried(struct obj *);
 extern void dealloc_obj(struct obj *);
 extern void obj_ice_effects(coordxy, coordxy, boolean);
 extern long peek_at_iced_corpse_age(struct obj *);
+extern void dobjsfree(void);
 extern int hornoplenty(struct obj *, boolean);
 extern int do_stair_travel(char);
 #ifdef WIZARD
@@ -1593,6 +1600,7 @@ extern boolean angry_guards(boolean);
 extern void pacify_guards(void);
 extern void decide_to_shapeshift(struct monst *, int);
 extern void mon_aireffects(struct monst *);
+extern void check_gear_next_turn(struct monst *) NONNULLARG1;
 
 /* ### mondata.c ### */
 
@@ -1637,6 +1645,10 @@ extern const char *stagger(const struct permonst *, const char *);
 extern const char *on_fire(struct permonst *, struct attack *);
 extern const struct permonst *raceptr(struct monst *);
 extern boolean olfaction(struct permonst *);
+extern unsigned long cvt_adtyp_to_mseenres(uchar);
+extern unsigned long cvt_prop_to_mseenres(uchar);
+extern void monstseesu(unsigned long);
+extern void monstunseesu(unsigned long);
 extern boolean is_fleshy(const struct permonst *);
 
 /* ### monmove.c ### */
@@ -1919,6 +1931,7 @@ extern char *Tobjnam(struct obj *, const char *);
 extern char *otense(struct obj *, const char *);
 extern char *vtense(const char *, const char *);
 extern char *Doname2(struct obj *);
+extern char *paydoname(struct obj *) NONNULL NONNULLARG1;
 extern char *yname(struct obj *);
 extern char *Yname2(struct obj *);
 extern char *ysimple_name(struct obj *);
@@ -2083,6 +2096,7 @@ extern boolean autopick_testobj(struct obj *, boolean);
 extern void msgpline_add(int, char *);
 extern void msgpline_free(void);
 extern void pline(const char *, ...) PRINTF_F(1, 2);
+extern void pline_mon(struct monst *, const char *, ...) PRINTF_F(2, 3) NONNULLARG1;
 extern void custompline(unsigned, const char *, ...) PRINTF_F(2, 3);
 extern void urgent_pline(const char *, ...) PRINTF_F(1, 2);
 extern void Norep(const char *, ...) PRINTF_F(1, 2);
@@ -2109,6 +2123,7 @@ extern void self_invis_message(void);
 extern void init_uasmon(void);
 extern void set_uasmon(void);
 extern void float_vs_flight(void);
+extern void steed_vs_stealth(void);
 extern void change_sex(void);
 extern void polyself(boolean);
 extern int polymon(int);
@@ -2327,6 +2342,7 @@ extern void genl_outrip(winid, int);
 /* ### rnd.c ### */
 
 extern int rn2(int);
+extern int rn2_on_display_rng(int);
 extern int rnl(int);
 extern int rnd(int);
 extern int d(int, int);
@@ -2460,6 +2476,9 @@ extern void zerocomp_bclose(int);
 
 extern void neweshk(struct monst *);
 extern void free_eshk(struct monst *);
+/* setpaid() has a conditional code block near the end of the
+   function, where arg1 is tested for NULL, preventing NONNULLARG1 */
+extern void setpaid(struct monst *) NO_NNARGS;
 extern long money2mon(struct monst *, long);
 extern void money2u(struct monst *, long);
 extern char *Shknam(struct monst *);
@@ -2483,7 +2502,6 @@ extern boolean onshopbill(struct obj *, struct monst *, boolean);
 extern boolean is_unpaid(struct obj *);
 extern void delete_contents(struct obj *);
 extern void obfree(struct obj *, struct obj *);
-extern void home_shk(struct monst *, boolean);
 extern void make_happy_shk(struct monst *, boolean);
 extern void make_happy_shoppers(boolean);
 extern void hot_pursuit(struct monst *);
@@ -2493,35 +2511,38 @@ extern boolean paybill(int, boolean);
 extern void finish_paybill(void);
 extern struct obj *find_oid(unsigned);
 extern long contained_cost(struct obj *, struct monst *, long, boolean, boolean);
-extern long contained_gold(struct obj *);
+extern long contained_gold(struct obj *, boolean) NONNULLARG1;
 extern void picked_container(struct obj *);
 extern void alter_cost(struct obj *, long);
-extern long unpaid_cost(struct obj *, boolean);
+extern long unpaid_cost(struct obj *, uchar) NONNULLARG1;
 extern boolean billable(struct monst **, struct obj *, char, boolean);
 extern void addtobill(struct obj *, boolean, boolean, boolean);
 extern void append_honorific(char *);
 extern void splitbill(struct obj *, struct obj *);
 extern void subfrombill(struct obj *, struct monst *);
 extern long stolen_value(struct obj *, coordxy, coordxy, boolean, boolean);
+extern void donate_gold(long, struct monst *, boolean) NONNULLARG2;
 extern void sellobj_state(int);
 extern void sellobj(struct obj *, coordxy, coordxy);
 extern int doinvbill(int);
 extern struct monst *shkcatch(struct obj *, coordxy, coordxy);
 extern void add_damage(coordxy, coordxy, long);
-extern int repair_damage(struct monst *, struct damage *, boolean);
 extern int shk_move(struct monst *);
 extern void after_shk_move(struct monst *);
 extern boolean is_fshk(struct monst *);
 extern void shopdig(int);
 extern void pay_for_damage(const char *, boolean);
 extern boolean costly_spot(coordxy, coordxy);
+/* costly_adjacent() has checks for null 1st arg, and an early return,
+   so it cannot be NONNULLARG1 */
+extern boolean costly_adjacent(struct monst *, coordxy, coordxy) NO_NNARGS;
 extern struct obj *shop_object(coordxy, coordxy);
 extern void price_quote(struct obj *);
 extern void shk_chat(struct monst *);
 extern void check_unpaid_usage(struct obj *, boolean);
 extern void check_unpaid(struct obj *);
-extern void costly_gold(coordxy, coordxy, long);
-extern long get_cost_of_shop_item(struct obj *);
+extern void costly_gold(coordxy, coordxy, long, boolean);
+extern long get_cost_of_shop_item(struct obj *, int *) NONNULLARG1;
 extern int oid_price_adjustment(struct obj *, unsigned);
 extern boolean block_door(coordxy, coordxy);
 extern boolean block_entry(coordxy, coordxy);
@@ -2532,6 +2553,7 @@ extern void bars_around_portal(boolean);
 #endif /* BLACKMARKET */
 extern char *shk_your(char *, struct obj *);
 extern char *Shk_Your(char *, struct obj *);
+extern void use_unpaid_trapobj(struct obj *, coordxy, coordxy) NONNULLARG1;
 extern void sanity_check_shopkeepers(void);
 
 /* ### shknam.c ### */
@@ -2653,6 +2675,9 @@ extern void dump_spells(void);
 extern boolean parse_spellorder(char *);
 extern const char* spelltypemnemonic(int);
 extern int num_spells(void);
+extern int known_spell(short);
+extern int spell_idx(short);
+extern char force_learn_spell(short);
 
 /* ### steal.c ### */
 
@@ -2684,6 +2709,7 @@ extern void exercise_steed(void);
 extern void kick_steed(void);
 extern void dismount_steed(int);
 extern void place_monster(struct monst *, coordxy, coordxy);
+extern void poly_steed(struct monst *, struct permonst *) NONNULLARG12;
 extern boolean stucksteed(boolean);
 
 /* ### sys.c ### */
@@ -2832,6 +2858,7 @@ extern boolean lava_effects(void);
 extern boolean swamp_effects(void);
 extern void blow_up_landmine(struct trap *);
 extern int launch_obj(short, coordxy, coordxy, coordxy, coordxy, int);
+extern const char * trapname(int, boolean);
 
 /* ### u_init.c ### */
 
@@ -3109,6 +3136,7 @@ extern int dotwoweapon(void);
 extern void uwepgone(void);
 extern void uswapwepgone(void);
 extern void uqwepgone(void);
+extern void set_twoweap(boolean);
 extern void untwoweapon(void);
 extern int chwepon(struct obj *, int);
 extern int welded(struct obj *);
@@ -3122,6 +3150,7 @@ extern void unwield_weapons_silently(void);
 extern void choose_windows(const char *);
 extern char genl_message_menu(char, int, const char *);
 extern void genl_preference_update(const char *);
+extern void add_menu_heading(winid, const char *) NONNULLARG2;
 
 /* ### wizard.c ### */
 
@@ -3184,6 +3213,7 @@ extern void clear_bypasses(void);
 extern void bypass_objlist(struct obj *, boolean);
 extern struct obj *nxt_unbypassed_obj(struct obj *);
 extern int racial_exception(struct monst *, struct obj *);
+extern void extract_from_minvent(struct monst *, struct obj *, boolean, boolean) NONNULLARG12;
 
 /* ### write.c ### */
 

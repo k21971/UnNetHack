@@ -26,6 +26,11 @@
 	* Race changes:
 	  - Allow player vampires to be neutral
 
+	* Role differentiation:
+	  - Cave dwellers reading magic triggers short confusion
+	  - Cave dwellers gain sickness resistance at experience level 10
+	  - When praying Cave dwellers get spell knowledge instead of a spellbook
+
 	* Ported NetHack 3.6 improvements, non exhaustive list:
 	  - Automatic fuzzer for debugging
 	  - Statues as monster symbols
@@ -160,6 +165,7 @@
 	  - Fix statuscolors crash due to incorrect color name parsing
 	  - Empty bag of tricks were considered magical bags
 	  - Fix class of starting vampire blood potions for player vampires (reported by K2)
+	  - Shoplifting would almost only generate low class kops/soldiers
 
 	* build fixes:
 	  - Fix compiling with -fno-common

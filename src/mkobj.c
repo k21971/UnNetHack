@@ -11,6 +11,7 @@ static void container_weight(struct obj *);
 static struct obj *save_mtraits(struct obj *, struct monst *);
 static void objlist_sanity(struct obj *, int, const char *);
 static void mon_obj_sanity(struct monst *, const char *);
+static void insane_obj_bits(struct obj *, struct monst *);
 #ifdef WIZARD
 static const char *where_name(struct obj *);
 static void check_contained(struct obj *, const char *);
@@ -689,7 +690,7 @@ bill_dummy_object(struct obj *otmp)
     long cost = 0L;
 
     if (otmp->unpaid) {
-        cost = unpaid_cost(otmp, FALSE);
+        cost = unpaid_cost(otmp, COST_SINGLEOBJ);
         subfrombill(otmp, shop_keeper(*u.ushops));
     }
     dummy = newobj();
@@ -707,7 +708,7 @@ bill_dummy_object(struct obj *otmp)
     }
     dummy->owornmask = 0L; /* dummy object is not worn */
     addtobill(dummy, FALSE, TRUE, TRUE);
-    if (cost) {
+    if (cost && dummy->where != OBJ_DELETED) {
         alter_cost(dummy, -cost);
     }
     /* no_charge is only valid for some locations */
@@ -2107,7 +2108,8 @@ discard_minvent(struct monst *mtmp)
 
 /*
  * Free obj from whatever list it is on in preparation for deleting it
- * or moving it elsewhere; obj->where will end up set to OBJ_FREE.
+ * or moving it elsewhere; obj->where will end up set to OBJ_FREE unless
+ * it is already OBJ_LUAFREE or OBJ_DELETED.
  * Doesn't handle unwearing of objects in hero's or monsters' inventories.
  *
  * Object positions:
@@ -2120,6 +2122,7 @@ discard_minvent(struct monst *mtmp)
  *      OBJ_BURIED      level.buriedobjs chain
  *      OBJ_ONBILL      on billobjs chain
  *      OBJ_LUAFREE     obj is dealloc'd from core, but still used by lua
+ *      OBJ_DELETED     obj has been deleted from play but not yet deallocated
  */
 void
 obj_extract_self(struct obj *obj)
@@ -2127,6 +2130,7 @@ obj_extract_self(struct obj *obj)
     switch (obj->where) {
     case OBJ_FREE:
     case OBJ_LUAFREE:
+    case OBJ_DELETED:
         break;
     case OBJ_FLOOR:
         remove_object(obj);
@@ -2321,7 +2325,10 @@ container_weight(struct obj *container)
 void
 dealloc_obj(struct obj *obj)
 {
-    if (obj->where != OBJ_FREE && obj->where != OBJ_LUAFREE) {
+    if (obj->where == OBJ_DELETED) {
+        impossible("dealloc_obj: obj already deleted (type=%d)", obj->otyp);
+        return;
+    } else if (obj->where != OBJ_FREE && obj->where != OBJ_LUAFREE) {
         panic("dealloc_obj: obj not free (%d,%d,%d)", obj->where, obj->otyp, obj->invlet);
     }
     if (obj->nobj) {
@@ -2355,15 +2362,49 @@ dealloc_obj(struct obj *obj)
         kickedobj = 0;
     }
 
-    if (obj->oextra) {
-        dealloc_oextra(obj);
-    }
     if (obj->lua_ref_cnt) {
         /* obj is referenced from a lua script, let lua gc free it */
         obj->where = OBJ_LUAFREE;
         return;
     }
+    /* mark object as deleted, put it into queue to be freed */
+    obj->where = OBJ_DELETED;
+    obj->nobj = go.objs_deleted;
+    go.objs_deleted = obj;
+}
+
+/* actually deallocate the object */
+static void
+dealloc_obj_real(struct obj *obj)
+{
+    if (obj->oextra) {
+        dealloc_oextra(obj);
+    }
+
+    /* clear out of date information contained in the about-to-become
+       stale memory so that potential used-after-freed bugs (should never
+       happen) might trigger an object lost panic instead of continuing;
+       linking with a debugging malloc library is likely to do something
+       similar so this is mainly useful for ordinary malloc/free */
+    *obj = cg.zeroobj;
     free((genericptr_t) obj);
+}
+
+/* free all the objects marked for deletion */
+void
+dobjsfree(void)
+{
+    struct obj *otmp;
+
+    while (go.objs_deleted) {
+        otmp = go.objs_deleted->nobj;
+        if (go.objs_deleted->where != OBJ_DELETED) {
+            panic("dobjsfree: obj where is not OBJ_DELETED");
+        }
+        obj_extract_self(go.objs_deleted);
+        dealloc_obj_real(go.objs_deleted);
+        go.objs_deleted = otmp;
+    }
 }
 
 /* create an object from a horn of plenty; mirrors bagotricks(makemon.c) */
@@ -2464,15 +2505,8 @@ static const char NEARDATA /* pline formats for insane_object() */
 void
 obj_sanity_check(void)
 {
-    int x, y;
-    struct obj *obj;
-
-    /*
-     * TODO:
-     *  Should check whether the obj->bypass and/or obj->nomerge bits
-     *  are set.  Those are both used for temporary purposes and should
-     *  be clear between moves.
-     */
+    coordxy x, y;
+    struct obj *obj, *otop, *prevo;
 
     objlist_sanity(fobj, OBJ_FLOOR, "floor sanity");
 
@@ -2481,13 +2515,30 @@ obj_sanity_check(void)
        the floor list so container contents are skipped here */
     for (x = 0; x < COLNO; x++) {
         for (y = 0; y < ROWNO; y++) {
-            for (obj = level.objects[x][y]; obj; obj = obj->nexthere) {
+            char at_fmt[BUFSZ];
+
+            otop = level.objects[x][y];
+            prevo = 0;
+            for (obj = otop; obj; prevo = obj, obj = prevo->nexthere) {
                 /* <ox,oy> should match <x,y>; <0,*> should always be empty */
                 if (obj->where != OBJ_FLOOR || x == 0 || obj->ox != x || obj->oy != y) {
-                    char at_fmt[BUFSZ];
-
                     Sprintf(at_fmt, "%%s obj@<%d,%d> %%s %%s: %%s@<%d,%d>", x, y, obj->ox, obj->oy);
                     insane_object(obj, at_fmt, "location sanity", (struct monst *) 0);
+
+                /* when one or more boulders are present, they should always
+                   be at the top of their pile; also never in water or lava */
+                } else if (obj->otyp == BOULDER) {
+                    if (prevo && prevo->otyp != BOULDER) {
+                        Sprintf(at_fmt, "%%s boulder@<%d,%d> %%s %%s: not on top", x, y);
+                        insane_object(obj, at_fmt, "boulder sanity", (struct monst *) 0);
+                    }
+                    if (is_pool_or_lava(x, y)) {
+                        Sprintf(at_fmt,
+                                "%%s boulder@<%d,%d> %%s %%s: on/in %s",
+                                x, y,
+                                is_pool(x, y) ? "water" : "lava");
+                        insane_object(obj, at_fmt, "boulder sanity", (struct monst *) 0);
+                    }
                 }
             }
         }
@@ -2497,6 +2548,7 @@ obj_sanity_check(void)
     objlist_sanity(migrating_objs, OBJ_MIGRATING, "migrating sanity");
     objlist_sanity(level.buriedobjlist, OBJ_BURIED, "buried sanity");
     objlist_sanity(billobjs, OBJ_ONBILL, "bill sanity");
+    objlist_sanity(go.objs_deleted, OBJ_DELETED, "deleted object sanity");
 
     mon_obj_sanity(fmon, "minvent sanity");
     mon_obj_sanity(migrating_mons, "migrating minvent sanity");
@@ -2514,6 +2566,11 @@ obj_sanity_check(void)
     }
     if (kickedobj) {
         insane_object(kickedobj, ofmt3, "kickedobj sanity", (struct monst *) 0);
+    }
+    /* returning_missile temporarily remembers thrownobj and should be
+       Null in between moves */
+    if (iflags.returning_missile) {
+        insane_object(iflags.returning_missile, ofmt3, "returning_missile sanity", (struct monst *) 0);
     }
     /* current_wand isn't removed from invent while in use, but should
        be Null between moves when we're called */
@@ -2599,6 +2656,37 @@ mon_obj_sanity(struct monst *monlist, const char *mesg)
             }
             check_contained(obj, mesg);
         }
+    }
+}
+
+static void
+insane_obj_bits(struct obj *obj, struct monst *mon)
+{
+    unsigned o_in_use, o_bypass, o_nomerge = FALSE, o_boulder = FALSE;
+
+    if (obj->where == OBJ_DELETED) {
+        return; /* skip bit checking for deleted objects */
+    }
+
+    o_in_use = obj->in_use;
+    o_bypass = obj->bypass;
+    /* having obj->nomerge be set might be intentional */
+#if 0
+    o_nomerge = (obj->nomerge && !nomerge_exception(obj));
+    /* next_boulder is only for object name formatting when pushing
+       boulders and should be reset by time of next sanity check */
+    o_boulder = (obj->otyp == BOULDER && obj->next_boulder);
+#endif
+
+    if (o_in_use || o_bypass || o_nomerge || o_boulder) {
+        char infobuf[QBUFSZ];
+
+        Sprintf(infobuf, "flagged%s%s%s%s",
+                o_in_use ? " in_use" : "",
+                o_bypass ? " bypass" : "",
+                o_nomerge ? " nomerge" : "",
+                o_boulder ? " nxtbldr" : "");
+        insane_object(obj, ofmt0, infobuf, mon);
     }
 }
 
