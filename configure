@@ -880,7 +880,7 @@ x_libraries=NONE
 bindir='${exec_prefix}/bin'
 sbindir='${exec_prefix}/sbin'
 libexecdir='${exec_prefix}/libexec'
-datarootdir='${prefix}'
+datarootdir='${prefix}/share'
 datadir='${datarootdir}'
 sysconfdir='${prefix}/etc'
 sharedstatedir='${prefix}/com'
@@ -1439,12 +1439,12 @@ Fine tuning of the installation directories:
   --libdir=DIR            object code libraries [EPREFIX/lib]
   --includedir=DIR        C header files [PREFIX/include]
   --oldincludedir=DIR     C header files for non-gcc [/usr/include]
-  --datarootdir=DIR       read-only arch.-independent data root [PREFIX]
+  --datarootdir=DIR       read-only arch.-independent data root [PREFIX/share]
   --datadir=DIR           read-only architecture-independent data [DATAROOTDIR]
   --infodir=DIR           info documentation [DATAROOTDIR/info]
   --localedir=DIR         locale-dependent data [DATAROOTDIR/locale]
   --mandir=DIR            man documentation [DATAROOTDIR/man]
-  --docdir=DIR            documentation root [DATAROOTDIR/doc]
+  --docdir=DIR            documentation root [DATAROOTDIR/doc/unnethack]
   --htmldir=DIR           html documentation [DOCDIR]
   --dvidir=DIR            dvi documentation [DOCDIR]
   --pdfdir=DIR            pdf documentation [DOCDIR]
@@ -1472,7 +1472,7 @@ Optional Features:
   --enable-dummy-graphics dummy graphics for unit tests (default=no)
   --enable-lisp-graphics  enable playing UnNetHack in Emacs (default=no)
   --enable-curses-graphics
-                          use curses interface (default=yes)
+                          use curses interface (default=no)
   --enable-tty-graphics   use tty-graphics (default=auto)
   --enable-x11-graphics   use x11-graphics (default=no)
   --enable-mswin-graphics use Microsoft Window's native graphics (default=no)
@@ -1511,37 +1511,37 @@ Optional Features:
   --enable-autopickup-exceptions
                           Exceptions to autopickup (default=yes)
   --enable-qwertz         QWERTZ keyboard layout support (default=yes)
-  --enable-simple-mail    simple mail dgamelaunch support (default=yes)
+  --enable-simple-mail    simple mail dgamelaunch support (default=no)
   --enable-xlogfile=FILE  More verbose logfile (default=yes, default
                           file=[xlogfile])
-  --enable-livelog=FILE   Live game progress logfile (default=yes, default
+  --enable-livelog=FILE   Live game progress logfile (default=no, default
                           file=[livelog])
   --enable-livelog-shout  Shoutting into the live game logfile (default=no)
   --enable-livelog-killing
                           Reporting killing of uniques and ghosts of former
-                          players (default=yes)
+                          players (default=no)
   --enable-dump           Dumping character stats (default=yes)
-  --enable-dump-file=FILE Name of character dump file (default=yes, default
-                          file=["/dgldir/userdata/%N/%n/unnethack/dumplog/%t.un.txt"])
+  --enable-dump-file=FILE Name of character dump file (default=no, default
+                          file=["/tmp/%n.nh"])
   --enable-dump-messages=NUMBER
                           Number of dumped messages (default=yes, default
                           number=[30])
   --enable-dump-text      Dump a text file (default=yes)
-  --enable-dump-html      Dump an HTML file (default=yes)
+  --enable-dump-html      Dump an HTML file (default=no)
   --enable-dump-html-css-file=FILE
                           Path to the css dump file (default=yes, default
-                          file=["/unnethack-6.0.14/unnethack_dump.css"])
+                          file=["unnethack_dump.css"])
   --enable-dump-html-css-embedded
                           CSS file should be included in the HTML dump
-                          (default=yes)
+                          (default=no)
   --enable-sysconf=FILE   Enable public server global configuration file
-                          (default=yes, default file=[sysconf])
+                          (default=no, default file=[sysconf])
   --enable-utf8-glyphs    Enable UTF-8 glyphs in TTY (default=yes)
   --enable-whereis-file=FILE
-                          Log information about running games (default=yes,
-                          default file=["/unnethack-6.0.14/var/whereis/%n.whereis"])
+                          Log information about running games (default=no,
+                          default file=[%n.whereis])
   --enable-wizmode=USER   enable wizard mode for the specified user
-                          (default=no, default user=[wizard])
+                          (default=yes, default user=[wizard])
   --enable-file-areas     Place files in different directories (default=yes)
   --enable-debug-fuzzer   Automatic fuzzing for debugging (default=no)
 
@@ -1554,16 +1554,16 @@ Optional Packages:
   --with-owner=USER       Set the owner of installed files (default=games)
   --with-group=GROUP      Set the group of installed files (default=bin)
   --with-gamesdir=DIR     Location of other files which may be modified
-                          (default=LOCALSTATEDIR)
+                          (default=LOCALSTATEDIR/unnethack)
   --with-bonesdir=DIR     Location of bones files (rw)
                           (default=GAMESDIR/bones)
   --with-savesdir=DIR     Location of save files (rw) (default=GAMESDIR/saves)
   --with-leveldir=DIR     Location of level files (rw)
                           (default=GAMESDIR/level)
   --with-sharedir=DIR     For read-only, architecture independent files
-                          (default=DATADIR)
+                          (default=DATADIR/unnethack)
   --with-unsharedir=DIR   For read-only, architecture dependent files
-                          (default=DATADIR)
+                          (default=DATADIR/unnethack)
 
 Some influential environment variables:
   CC          C compiler
@@ -2462,9 +2462,9 @@ printf '%s\n' "#define PACKAGE_URL \"$PACKAGE_URL\"" >>confdefs.h
 if test -n "$CONFIG_SITE"; then
   ac_site_files="$CONFIG_SITE"
 elif test "x$prefix" != xNONE; then
-  ac_site_files="$prefix/config.site $prefix/etc/config.site"
+  ac_site_files="$prefix/share/config.site $prefix/etc/config.site"
 else
-  ac_site_files="$ac_default_prefix/config.site $ac_default_prefix/etc/config.site"
+  ac_site_files="$ac_default_prefix/share/config.site $ac_default_prefix/etc/config.site"
 fi
 
 for ac_site_file in $ac_site_files
@@ -8917,10 +8917,10 @@ if test ${enable_dump_file+y}
 then :
   enableval=$enable_dump_file; if test "$enableval" != no; then enable_dump_file=yes;
          if test "$enableval" != yes; then dump_file=$enableval;
-         else dump_file="/dgldir/userdata/%N/%n/unnethack/dumplog/%t.un.txt"; fi;
+         else dump_file="/tmp/%n.nh"; fi;
         else enable_dump_file=no; fi
 else case e in #(
-  e) enable_dump_file=no;dump_file="/dgldir/userdata/%N/%n/unnethack/dumplog/%t.un.txt" ;;
+  e) enable_dump_file=no;dump_file="/tmp/%n.nh" ;;
 esac
 fi
 
@@ -9010,10 +9010,10 @@ if test ${enable_dump_html_css_file+y}
 then :
   enableval=$enable_dump_html_css_file; if test "$enableval" != no; then enable_dump_html_css_file=yes;
          if test "$enableval" != yes; then dump_html_css_file=$enableval;
-         else dump_html_css_file="/unnethack-6.0.14/unnethack_dump.css"; fi;
+         else dump_html_css_file="unnethack_dump.css"; fi;
         else enable_dump_html_css_file=no; fi
 else case e in #(
-  e) enable_dump_html_css_file=yes;dump_html_css_file="/unnethack-6.0.14/unnethack_dump.css" ;;
+  e) enable_dump_html_css_file=yes;dump_html_css_file="unnethack_dump.css" ;;
 esac
 fi
 
@@ -9127,10 +9127,10 @@ if test ${enable_whereis_file+y}
 then :
   enableval=$enable_whereis_file; if test "$enableval" != no; then enable_whereis_file=yes;
          if test "$enableval" != yes; then whereis_file=$enableval;
-         else whereis_file="/unnethack-6.0.14/var/whereis/%n.whereis"; fi;
+         else whereis_file=%n.whereis; fi;
         else enable_whereis_file=no; fi
 else case e in #(
-  e) enable_whereis_file=no;whereis_file="/unnethack-6.0.14/var/whereis/%n.whereis" ;;
+  e) enable_whereis_file=no;whereis_file=%n.whereis ;;
 esac
 fi
 
@@ -9306,14 +9306,14 @@ printf '%s\n' "#define DEBUG_FUZZER /**/" >>confdefs.h
 
 # set doc directory manually
 if test "$enable_file_areas" != "no" ; then
-  FILE_AREA_DOC=${docdir}
+  FILE_AREA_DOC=${docdir}/unnethack
 
 
-printf "%s\n" "#define FILE_AREA_DOC AUTOCONF_DOCDIR" >>confdefs.h
+printf '%s\n' "#define FILE_AREA_DOC AUTOCONF_DOCDIR\"/unnethack\"" >>confdefs.h
 
 else
   # ignore ${docdir} if FILE_AREAS is not defined
-  FILE_AREA_DOC=${datadir}
+  FILE_AREA_DOC=${datadir}/unnethack
 
 fi
 
@@ -9326,7 +9326,7 @@ if test ${with_gamesdir+y}
 then :
   withval=$with_gamesdir; autoconf_val='"'$withval'"'
 else case e in #(
-  e) withval=${localstatedir}/unnethack;autoconf_val='AUTOCONF_LOCALSTATEDIR' ;;
+  e) withval=${localstatedir}/unnethack;autoconf_val='AUTOCONF_LOCALSTATEDIR"/unnethack"' ;;
 esac
 fi
 
@@ -9341,9 +9341,9 @@ printf '%s\n' "$withval" >&6; }
    else
      # set default value if FILE_AREAS is not defined
      if test "FILE_AREA_VAR" != "FILE_AREA_SAVE" ; then
-       tmp_installdir=${datadir}
+       tmp_installdir=${datadir}/unnethack
      else
-       tmp_installdir=${datadir}/save
+       tmp_installdir=${datadir}/unnethack/save
      fi
      FILE_AREA_VAR=${tmp_installdir}
 
@@ -9376,9 +9376,9 @@ printf '%s\n' "$withval" >&6; }
    else
      # set default value if FILE_AREAS is not defined
      if test "FILE_AREA_BONES" != "FILE_AREA_SAVE" ; then
-       tmp_installdir=${datadir}
+       tmp_installdir=${datadir}/unnethack
      else
-       tmp_installdir=${datadir}/save
+       tmp_installdir=${datadir}/unnethack/save
      fi
      FILE_AREA_BONES=${tmp_installdir}
 
@@ -9396,7 +9396,7 @@ if test ${with_savesdir+y}
 then :
   withval=$with_savesdir; autoconf_val='"'$withval'"'
 else case e in #(
-  e) withval=${FILE_AREA_VAR}/save;autoconf_val='FILE_AREA_VAR"/save"' ;;
+  e) withval=${FILE_AREA_VAR}/saves;autoconf_val='FILE_AREA_VAR"/saves"' ;;
 esac
 fi
 
@@ -9411,9 +9411,9 @@ printf '%s\n' "$withval" >&6; }
    else
      # set default value if FILE_AREAS is not defined
      if test "FILE_AREA_SAVE" != "FILE_AREA_SAVE" ; then
-       tmp_installdir=${datadir}
+       tmp_installdir=${datadir}/unnethack
      else
-       tmp_installdir=${datadir}/save
+       tmp_installdir=${datadir}/unnethack/save
      fi
      FILE_AREA_SAVE=${tmp_installdir}
 
@@ -9431,7 +9431,7 @@ if test ${with_leveldir+y}
 then :
   withval=$with_leveldir; autoconf_val='"'$withval'"'
 else case e in #(
-  e) withval=${FILE_AREA_VAR};autoconf_val='FILE_AREA_VAR' ;;
+  e) withval=${FILE_AREA_VAR}/level;autoconf_val='FILE_AREA_VAR"/level"' ;;
 esac
 fi
 
@@ -9446,9 +9446,9 @@ printf '%s\n' "$withval" >&6; }
    else
      # set default value if FILE_AREAS is not defined
      if test "FILE_AREA_LEVL" != "FILE_AREA_SAVE" ; then
-       tmp_installdir=${datadir}
+       tmp_installdir=${datadir}/unnethack
      else
-       tmp_installdir=${datadir}/save
+       tmp_installdir=${datadir}/unnethack/save
      fi
      FILE_AREA_LEVL=${tmp_installdir}
 
@@ -9466,7 +9466,7 @@ if test ${with_sharedir+y}
 then :
   withval=$with_sharedir; autoconf_val='"'$withval'"'
 else case e in #(
-  e) withval=${datadir}/unnethack;autoconf_val='AUTOCONF_DATADIR' ;;
+  e) withval=${datadir}/unnethack;autoconf_val='AUTOCONF_DATADIR"/unnethack"' ;;
 esac
 fi
 
@@ -9481,9 +9481,9 @@ printf '%s\n' "$withval" >&6; }
    else
      # set default value if FILE_AREAS is not defined
      if test "FILE_AREA_SHARE" != "FILE_AREA_SAVE" ; then
-       tmp_installdir=${datadir}
+       tmp_installdir=${datadir}/unnethack
      else
-       tmp_installdir=${datadir}/save
+       tmp_installdir=${datadir}/unnethack/save
      fi
      FILE_AREA_SHARE=${tmp_installdir}
 
@@ -9501,7 +9501,7 @@ if test ${with_unsharedir+y}
 then :
   withval=$with_unsharedir; autoconf_val='"'$withval'"'
 else case e in #(
-  e) withval=${datadir}/unnethack;autoconf_val='AUTOCONF_DATADIR' ;;
+  e) withval=${datadir}/unnethack;autoconf_val='AUTOCONF_DATADIR"/unnethack"' ;;
 esac
 fi
 
@@ -9516,9 +9516,9 @@ printf '%s\n' "$withval" >&6; }
    else
      # set default value if FILE_AREAS is not defined
      if test "FILE_AREA_UNSHARE" != "FILE_AREA_SAVE" ; then
-       tmp_installdir=${datadir}
+       tmp_installdir=${datadir}/unnethack
      else
-       tmp_installdir=${datadir}/save
+       tmp_installdir=${datadir}/unnethack/save
      fi
      FILE_AREA_UNSHARE=${tmp_installdir}
 
@@ -10415,7 +10415,7 @@ cat >>"$CONFIG_STATUS" <<_ACEOF || ac_write_fail=1
 _ACAWK
 cat >>"\$ac_tmp/subs1.awk" <<_ACAWK &&
   for (key in S) S_is_set[key] = 1
-  FS = ""
+  FS = ""
 
 }
 {
@@ -10547,7 +10547,7 @@ s/'"$ac_delim"'/"\\\
 
 cat >>"$CONFIG_STATUS" <<_ACEOF || ac_write_fail=1
   for (key in D) D_is_set[key] = 1
-  FS = ""
+  FS = ""
 }
 /^[\t ]*#[\t ]*(define|undef)[\t ]+$ac_word_re([\t (]|\$)/ {
   line = \$ 0
@@ -10902,4 +10902,3 @@ if test -n "$ac_unrecognized_opts" && test "$enable_option_checking" != no; then
   { printf '%s\n' "$as_me:${as_lineno-$LINENO}: WARNING: unrecognized options: $ac_unrecognized_opts" >&5
 printf '%s\n' "$as_me: WARNING: unrecognized options: $ac_unrecognized_opts" >&2;}
 fi
-

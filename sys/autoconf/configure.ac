@@ -24,7 +24,7 @@ nethack_default_win=""
 # Note: Order is important: The last listed enabled port will be the default.
 NETHACK_WIN_ENABLE(dummy, no, [dummy graphics for unit tests])
 NETHACK_WIN_ENABLE(lisp, no, [enable playing UnNetHack in Emacs])
-NETHACK_WIN_ENABLE(curses, yes, [use curses interface])
+NETHACK_WIN_ENABLE(curses, no, [use curses interface])
 NETHACK_WIN_ENABLE(tty, auto)
 NETHACK_WIN_ENABLE(x11, no)
 NETHACK_WIN_ENABLE(mswin, no, [use Microsoft Window's native graphics])
@@ -419,29 +419,29 @@ NETHACK_ARG(dungeon-growth,[Dungeon growth],DUNGEON_GROWTH,yes)
 NETHACK_ARG(autopickup-exceptions,[Exceptions to autopickup],
   AUTOPICKUP_EXCEPTIONS,yes)
 NETHACK_ARG(qwertz,[QWERTZ keyboard layout support],QWERTZ,yes)
-NETHACK_ARG(simple-mail,[simple mail dgamelaunch support],SIMPLE_MAIL,yes)
+NETHACK_ARG(simple-mail,[simple mail dgamelaunch support],SIMPLE_MAIL,no)
 
 NETHACK_ARG_WITH_PARAM(xlogfile,[More verbose logfile],XLOGFILE,yes,FILE,[xlogfile])
 
-NETHACK_ARG_WITH_PARAM(livelog,[Live game progress logfile],LIVELOGFILE,yes,FILE,[livelog])
+NETHACK_ARG_WITH_PARAM(livelog,[Live game progress logfile],LIVELOGFILE,no,FILE,[livelog])
 if test "$enable_livelog" != "no" ; then
 	NETHACK_ARG(livelog-shout,[Shoutting into the live game logfile],LIVELOG_SHOUT,no)
-	NETHACK_ARG(livelog-killing,[Reporting killing of uniques and ghosts of former players],LIVELOG_BONES_KILLER,yes)
+	NETHACK_ARG(livelog-killing,[Reporting killing of uniques and ghosts of former players],LIVELOG_BONES_KILLER,no)
 fi
 
 NETHACK_ARG(dump,[Dumping character stats],DUMP_LOG,yes)
 if test "$enable_dump" != "no" ; then
-	NETHACK_ARG_WITH_PARAM(dump-file,[Name of character dump file],DUMP_FN,yes,FILE,"/dgldir/userdata/%N/%n/unnethack/dumplog/%t.un.txt")
+	NETHACK_ARG_WITH_PARAM(dump-file,[Name of character dump file],DUMP_FN,no,FILE,"/tmp/%n.nh")
 	NETHACK_ARG_WITH_PARAM(dump-messages,[Number of dumped messages],DUMPMSGS,yes,NUMBER,30)
 	NETHACK_ARG(dump-text,[Dump a text file],DUMP_TEXT_LOG,yes)
-	NETHACK_ARG(dump-html,[Dump an HTML file],DUMP_HTML_LOG,yes)
+	NETHACK_ARG(dump-html,[Dump an HTML file],DUMP_HTML_LOG,no)
 	if test "$enable_dump_html" != "no" ; then
-		NETHACK_ARG_WITH_PARAM(dump-html-css-file,[Path to the css dump file],DUMP_HTML_CSS_FILE,yes,FILE,"/unnethack-6.0.14/unnethack_dump.css")
-		NETHACK_ARG(dump-html-css-embedded,[CSS file should be included in the HTML dump],DUMP_HTML_CSS_EMBEDDED,yes)
+		NETHACK_ARG_WITH_PARAM(dump-html-css-file,[Path to the css dump file],DUMP_HTML_CSS_FILE,yes,FILE,"unnethack_dump.css")
+		NETHACK_ARG(dump-html-css-embedded,[CSS file should be included in the HTML dump],DUMP_HTML_CSS_EMBEDDED,no)
 	fi
 fi
 
-NETHACK_ARG_WITH_PARAM(sysconf,[Enable public server global configuration file],SYSCF_FILE,yes,FILE,[sysconf])
+NETHACK_ARG_WITH_PARAM(sysconf,[Enable public server global configuration file],SYSCF_FILE,no,FILE,[sysconf])
 if test "$enable_sysconf" != "no" ; then
 	AC_DEFINE([SYSCF], [], [Use configuration file for public server])
 	AC_SUBST(SYSCF_CP,[])
@@ -462,9 +462,9 @@ if test "$enable_tty_graphics" != "no" -a "$host_os" != mingw32; then
 fi
 
 
-NETHACK_ARG_WITH_PARAM(whereis-file,[Log information about running games],WHEREIS_FILE,yes,FILE,["/unnethack-6.0.14/var/whereis/%n.whereis"])
+NETHACK_ARG_WITH_PARAM(whereis-file,[Log information about running games],WHEREIS_FILE,no,FILE,[%n.whereis])
 
-NETHACK_ARG_WITH_PARAM(wizmode,[enable wizard mode for the specified user],WIZARD,no,USER,[wizard])
+NETHACK_ARG_WITH_PARAM(wizmode,[enable wizard mode for the specified user],WIZARD,yes,USER,[wizard])
 
 if test "$CHOWN" != "true"; then
     AC_MSG_CHECKING([for owner of installed files])
@@ -528,17 +528,17 @@ AC_DEFUN([NETHACK_DIR_SET],
 
 # set doc directory manually
 if test "$enable_file_areas" != "no" ; then
-  AC_SUBST(FILE_AREA_DOC,[${docdir}])
+  AC_SUBST(FILE_AREA_DOC,[${docdir}/unnethack])
   AC_DEFINE_UNQUOTED(FILE_AREA_DOC, [AUTOCONF_DOCDIR"/unnethack"],
     [Location of human-readable documentation])
 else
   # ignore ${docdir} if FILE_AREAS is not defined
-  AC_SUBST(FILE_AREA_DOC,[${datadir}])
+  AC_SUBST(FILE_AREA_DOC,[${datadir}/unnethack])
 fi
 
-NETHACK_DIR_SET(gamesdir, gamesdir, [LOCALSTATEDIR],
-		[${localstatedir}],
-		[AUTOCONF_LOCALSTATEDIR],
+NETHACK_DIR_SET(gamesdir, gamesdir, [LOCALSTATEDIR/unnethack],
+		[${localstatedir}/unnethack],
+		[AUTOCONF_LOCALSTATEDIR"/unnethack"],
 		FILE_AREA_VAR, [Location of other files which may be modified])
 
 NETHACK_DIR_SET(bonesdir, bones, [GAMESDIR/bones],
@@ -547,23 +547,23 @@ NETHACK_DIR_SET(bonesdir, bones, [GAMESDIR/bones],
 		FILE_AREA_BONES, [Location of bones files (rw)])
 
 NETHACK_DIR_SET(savesdir, saves, [GAMESDIR/saves],
-		[${FILE_AREA_VAR}/save],
-		[FILE_AREA_VAR"/save"],
+		[${FILE_AREA_VAR}/saves],
+		[FILE_AREA_VAR"/saves"],
 		FILE_AREA_SAVE, [Location of save files (rw)])
 
 NETHACK_DIR_SET(leveldir, level, [GAMESDIR/level],
-		[${FILE_AREA_VAR}],
-		[FILE_AREA_VAR],
+		[${FILE_AREA_VAR}/level],
+		[FILE_AREA_VAR"/level"],
 		FILE_AREA_LEVL, [Location of level files (rw)])
 
-NETHACK_DIR_SET(sharedir, share, [DATADIR],
-		[${datadir}],
-		[AUTOCONF_DATADIR],
+NETHACK_DIR_SET(sharedir, share, [DATADIR/unnethack],
+		[${datadir}/unnethack],
+		[AUTOCONF_DATADIR"/unnethack"],
 		FILE_AREA_SHARE, [For read-only, architecture independent files])
 
-NETHACK_DIR_SET(unsharedir, unshare, [DATADIR],
-		[${datadir}],
-		[AUTOCONF_DATADIR],
+NETHACK_DIR_SET(unsharedir, unshare, [DATADIR/unnethack],
+		[${datadir}/unnethack],
+		[AUTOCONF_DATADIR"/unnethack"],
 		FILE_AREA_UNSHARE, [For read-only, architecture dependent files])
 
 
