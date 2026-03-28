@@ -505,7 +505,7 @@ hitfloor(
         return;
     }
     if (IS_ALTAR(levl[u.ux][u.uy].typ)) {
-        doaltarobj(obj);
+        doaltarobj(obj, TRUE);
     } else if (verbosely) {
         pline("%s %s the %s.", Doname2(obj), otense(obj, "hit"),
                 surface(u.ux, u.uy));
@@ -1578,6 +1578,10 @@ throwit(
         }
         thrownobj = (struct obj*)0;
         place_object(obj, bhitpos.x, bhitpos.y);
+        if (IS_ALTAR(levl[bhitpos.x][bhitpos.y].typ)
+            && cansee(bhitpos.x, bhitpos.y)) {
+            doaltarobj(obj, u_at(bhitpos.x, bhitpos.y));
+        }
         /* container contents might break;
            do so before turning ownership of thrownobj over to shk
            (container_impact_dmg handles item already owned by shop) */
@@ -1700,7 +1704,9 @@ befriend_with_obj(struct permonst *data, struct obj *obj)
     }
 
     if ((Role_if(PM_RANGER) || Role_if(PM_CAVEMAN)) &&
-         (data == &mons[PM_WINTER_WOLF_CUB])) {
+         (data == &mons[PM_WINTER_WOLF_CUB] ||
+          data == &mons[PM_WINTER_WOLF] ||
+          data == &mons[PM_WOLF])) {
         return TRUE;
     }
 #endif

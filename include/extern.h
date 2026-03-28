@@ -390,7 +390,7 @@ extern int wipeoff(void);
 extern int dodrop(void);
 extern boolean boulder_hits_pool(struct obj *, int, int, boolean);
 extern boolean flooreffects(struct obj *, coordxy, coordxy, const char *);
-extern void doaltarobj(struct obj *);
+extern void doaltarobj(struct obj *, boolean);
 extern boolean canletgo(struct obj *, const char *);
 extern void dropx(struct obj *);
 extern void dropy(struct obj *);
@@ -1663,6 +1663,8 @@ extern boolean onscary(coordxy, coordxy, struct monst *);
 extern void monflee(struct monst *, int, boolean, boolean);
 extern int dochug(struct monst *);
 extern boolean m_digweapon_check(struct monst *, coordxy, coordxy);
+extern boolean m_avoid_kicked_loc(struct monst *, coordxy, coordxy) NONNULLARG1;
+extern boolean m_avoid_soko_push_loc(struct monst *, coordxy, coordxy) NONNULLARG1;
 extern int m_move(struct monst *, int);
 extern int m_move_aggress(struct monst *, coordxy, coordxy);
 extern boolean closed_door(coordxy, coordxy);
@@ -1877,6 +1879,8 @@ extern void synch_cursor(void);
 
 extern void init_objects(void);
 extern int find_skates(void);
+/* objdescr_is() contains a test for NULL arg1, so can't be NONNULLARG12 */
+extern boolean objdescr_is(struct obj *, const char *) NONNULLARG2;
 extern void oinit(void);
 extern void savenames(NHFILE *) NONNULLARG1;
 extern void restnames(NHFILE *) NONNULLARG1;
@@ -1884,7 +1888,7 @@ extern void discover_object(int, boolean, boolean);
 extern void undiscover_object(int);
 extern int dodiscovered(void);
 extern void dragons_init(void);
-extern void makeknown_msg(int);
+extern void makeknown_msg(int, boolean);
 extern int doclassdisco(void);
 extern void rename_disco(void);
 

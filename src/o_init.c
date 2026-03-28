@@ -307,6 +307,26 @@ find_skates(void)
     return -1;  /* not 0, or caller would try again each move */
 }
 
+/* Return TRUE if the provided string matches the unidentified description of
+ * the provided object. */
+boolean
+objdescr_is(struct obj *obj, const char *descr)
+{
+    const char *objdescr;
+
+    if (!obj) {
+        impossible("objdescr_is: null obj");
+        return FALSE;
+    }
+
+    objdescr = OBJ_DESCR(objects[obj->otyp]);
+    if (!objdescr) {
+        return FALSE; /* no obj description, no match */
+    }
+
+    return !strcmp(objdescr, descr);
+}
+
 /* level dependent initialization */
 void
 oinit(void)
@@ -443,7 +463,7 @@ undiscover_object(int oindx)
 }
 
 void
-makeknown_msg(int otyp)
+makeknown_msg(int otyp, boolean past_tense)
 {
     boolean was_known, now_known;
     char oclass = objects[otyp].oc_class;
@@ -457,9 +477,13 @@ makeknown_msg(int otyp)
         if (otyp == LENSES ||
             (oclass == ARMOR_CLASS &&
              (osubtyp == ARM_BOOTS || osubtyp == ARM_GLOVES))) {
-            pline("They must be %s!", simple_typename(otyp));
+            pline(past_tense ? "They must have been %s!"
+                             : "They must be %s!",
+                  simple_typename(otyp));
         } else {
-            pline("It must be %s!", an(simple_typename(otyp)));
+            pline(past_tense ? "It must have been %s!"
+                             : "It must be %s!",
+                  an(simple_typename(otyp)));
         }
     }
 }

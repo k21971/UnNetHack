@@ -1141,7 +1141,15 @@ dog_move(struct monst *mtmp,
             return 0;
         }
 
-        {   /* Dog avoids harmful traps, but perhaps it has to pass one
+        if (m_avoid_kicked_loc(mtmp, nx, ny)) {
+            continue;
+        }
+        if (m_avoid_soko_push_loc(mtmp, nx, ny)) {
+            continue;
+        }
+
+        {
+            /* Dog avoids harmful traps, but perhaps it has to pass one
              * in order to follow player.  (Non-harmful traps do not
              * have ALLOW_TRAPS in info[].)  The dog only avoids the
              * trap if you've seen it, unlike enemies who avoid traps
