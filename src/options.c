@@ -90,7 +90,7 @@ static struct Bool_Opt
     {"checkpoint", (boolean *)0, FALSE, SET_IN_FILE},
 #endif
 #ifdef CURSES_GRAPHICS
-    {"classic_status", &iflags.classic_status, TRUE, SET_IN_FILE},
+    {"classic_status", &iflags.classic_status, FALSE, SET_IN_FILE},
 #endif
     {"clicklook", &iflags.clicklook, FALSE, SET_IN_FILE },
     {"cmdassist", &iflags.cmdassist, TRUE, SET_IN_GAME},
@@ -468,6 +468,11 @@ static struct Comp_Opt
     { "soundcard", "type of sound card to use", 20, SET_IN_FILE },
 #endif
     { "statuscolor", "set status colors", PL_PSIZ, SET_IN_FILE },
+#ifdef STATUS_HILITES
+    { "hilite_status", "set status hilite rules", PL_PSIZ, SET_IN_FILE },
+    { "statushilites", "set duration of temporary status highlights",
+      20, SET_IN_GAME },
+#endif
 #ifdef TTY_GRAPHICS
     { "statuslines", "set number of status lines (2 or 3)", 20, SET_IN_GAME },
 #endif
@@ -630,6 +635,9 @@ static int count_menucolors(void);
 static int handler_autopickup_exception(void);
 static void remove_autopickup_exception(struct autopickup_exception *);
 static int count_apes(void);
+#endif
+#ifdef STATUS_HILITES
+static int count_cond(void);
 #endif
 
 #ifdef AUTOPICKUP_EXCEPTIONS
@@ -1363,7 +1371,7 @@ parsebindings(char *bindings)
     char *bind;
     char key;
     int i;
-    boolean ret = FALSE;
+    boolean ret = TRUE; /* assume success */
 
     /* break off first binding from the rest; parse the rest */
     if ((bind = index(bindings, ',')) != 0) {
@@ -1388,7 +1396,7 @@ parsebindings(char *bindings)
 
     /* is it a special key? */
     if (bind_specialkey(key, bind)) {
-        return TRUE;
+        return ret;
     }
 
     /* is it a menu command? */
@@ -1400,7 +1408,7 @@ parsebindings(char *bindings)
             } else {
                 add_menu_cmd_alias(key, default_menu_cmd_info[i].cmd);
             }
-            return TRUE;
+            return ret;
         }
     }
 
@@ -1409,7 +1417,8 @@ parsebindings(char *bindings)
         config_error_add("Unknown key binding command '%s'", bind);
         return FALSE;
     }
-    return TRUE;
+
+    return ret;
 }
 
 #if defined(STATUS_COLORS) && defined(TEXTCOLOR)
@@ -1444,9 +1453,9 @@ parse_color_option(char *start)
     return result;
 }
 
-const struct percent_color_option *hp_colors = NULL;
-const struct percent_color_option *pw_colors = NULL;
-const struct text_color_option *text_colors = NULL;
+struct percent_color_option *hp_colors = NULL;
+struct percent_color_option *pw_colors = NULL;
+struct text_color_option *text_colors = NULL;
 
 struct percent_color_option *
 add_percent_option(struct percent_color_option *new_option, struct percent_color_option *list_head)
@@ -2049,7 +2058,7 @@ parse_monster_color(char *str)
         return FALSE;
     }
 
-    strncpy(buf, str, BUFSZ);
+    snprintf(buf, BUFSZ, "%s", str);
     cs = strchr(buf, ':');
     if (!cs) {
         return FALSE;
@@ -2115,7 +2124,7 @@ parse_extended_option(
         return FALSE;
     }
 
-    strncpy(buf, str, BUFSZ);
+    snprintf(buf, BUFSZ, "%s", str);
 
     /* remove comment*/
     cs = strrchr(buf, '#');
@@ -2428,7 +2437,11 @@ parseoptions(char *opts, boolean tinitial, boolean tfrom_file)
         Strcpy(opts, "color");  /* fortunately this isn't longer */
     }
 
-    if (!match_optname(opts, "subkeyvalue", 11, TRUE)) { /* allow multiple */
+    if (!match_optname(opts, "subkeyvalue", 11, TRUE)
+#ifdef STATUS_HILITES
+        && !match_optname(opts, "hilite_status", 13, TRUE)
+#endif
+        ) { /* allow multiple */
         duplicate_opt_detection(opts, 1); /* 1 means compound opts */
     }
 
@@ -3727,6 +3740,43 @@ goodfruit:
         return retval;
     }
 
+#ifdef STATUS_HILITES
+    fullname = "hilite_status";
+    if (match_optname(opts, fullname, 13, TRUE)) {
+        if (negated) {
+            clear_status_hilites();
+            return retval;
+        } else if ((op = string_for_env_opt(fullname, opts, FALSE)) != 0) {
+            if (!parse_status_hl1(op, from_file)) {
+                badoption(opts);
+                return FALSE;
+            }
+        }
+        return retval;
+    }
+
+    fullname = "statushilites";
+    if (match_optname(opts, fullname, 13, TRUE)) {
+        if (negated) {
+            iflags.hilite_delta = 0L;
+        } else {
+            op = string_for_opt(opts, negated);
+            if (op) {
+                iflags.hilite_delta = atol(op);
+                if (iflags.hilite_delta < 0) {
+                    badoption(opts);
+                }
+            } else {
+                iflags.hilite_delta = 3L;
+            }
+        }
+        if (iflags.hilite_delta) {
+            reset_status_hilites();
+        }
+        return retval;
+    }
+#endif
+
 #ifdef TTY_GRAPHICS
     fullname = "statuslines";
     if (match_optname(opts, fullname, 11, TRUE)) {
@@ -4703,6 +4753,18 @@ doset(void)
     add_menu(tmpwin, NO_GLYPH, MENU_DEFCNT, &any, 0, 0, ATR_NONE, buf, MENU_UNSELECTED);
 #endif /* AUTOPICKUP_EXCEPTIONS */
 
+#ifdef STATUS_HILITES
+    any.a_int = -3;
+    Sprintf(buf, "status hilites        (%d currently set)",
+            count_status_hilites());
+    add_menu(tmpwin, NO_GLYPH, MENU_DEFCNT, &any, 0, 0, ATR_NONE, buf, MENU_UNSELECTED);
+
+    any.a_int = -4;
+    Sprintf(buf, "status conditions     (%d currently set)", count_cond());
+    add_menu(tmpwin, NO_GLYPH, MENU_DEFCNT, &any, 0, 0, ATR_NONE,
+             buf, MENU_UNSELECTED);
+#endif
+
 #ifdef PREFIXES_IN_USE
     any.a_void = 0;
     add_menu(tmpwin, NO_GLYPH, MENU_DEFCNT, &any, 0, 0, ATR_NONE, "", MENU_UNSELECTED);
@@ -4732,6 +4794,13 @@ doset(void)
 #ifdef MENU_COLOR
             if (opt_indx == -3) {
                 special_handling("menu colors", setinitial, fromfile);
+            } else
+#endif
+#ifdef STATUS_HILITES
+            if (opt_indx == -4) {
+                (void) status_hilite_menu();
+            } else if (opt_indx == -5) {
+                (void) cond_menu();
             } else
 #endif
             if (opt_indx < boolcount) {
@@ -5592,6 +5661,15 @@ get_compopt_value(const char *optname, char *buf)
         Sprintf(buf, "%d", iflags.statuslines);
     }
 #endif
+#ifdef STATUS_HILITES
+    else if (!strcmp(optname, "statushilites")) {
+        if (!iflags.hilite_delta) {
+            Strcpy(buf, "0 (off)");
+        } else {
+            Sprintf(buf, "%ld", iflags.hilite_delta);
+        }
+    }
+#endif
     else if (!strcmp(optname, "suppress_alert")) {
         if (flags.suppress_alert == 0L) {
             Strcpy(buf, none);
@@ -5862,6 +5940,19 @@ free_autopickup_exceptions(void)
         apelist = ape->next;
         free(ape);
     }
+}
+
+static int
+count_cond(void)
+{
+    int i, cnt = 0;
+
+    for (i = 0; i < CONDITION_COUNT; ++i) {
+        if (condtests[i].enabled) {
+            cnt++;
+        }
+    }
+    return cnt;
 }
 
 int

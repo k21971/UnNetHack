@@ -392,9 +392,10 @@ void
 linux_mapon(void)
 {
 # ifdef TTY_GRAPHICS
-	if (!strcmp(windowprocs.name, "tty") && linux_flag_console) {
-		write(1, "\033(B", 3);
-	}
+    if (!strcmp(windowprocs.name, "tty") && linux_flag_console) {
+        ssize_t ret = write(1, "\033(B", 3);
+        (void)ret;
+    }
 # endif
 }
 
@@ -402,9 +403,10 @@ void
 linux_mapoff(void)
 {
 # ifdef TTY_GRAPHICS
-	if (!strcmp(windowprocs.name, "tty") && linux_flag_console) {
-		write(1, "\033(U", 3);
-	}
+    if (!strcmp(windowprocs.name, "tty") && linux_flag_console) {
+        ssize_t ret = write(1, "\033(U", 3);
+        (void)ret;
+    }
 # endif
 }
 
@@ -457,6 +459,9 @@ error VA_DECL(const char *,s)
 void
 check_utf8_console(void)
 {
+#if defined(__PDCURSESMOD__) && defined(PDC_WIDE)
+    iflags.supports_utf8 = TRUE;
+#else
     struct termios original;
     /* store current tty settings */
     if (tcgetattr(STDIN_FILENO, &original) == -1) {
@@ -508,5 +513,6 @@ check_utf8_console(void)
         perror("check_utf8_console restore terminal settings");
         exit(EXIT_FAILURE);
     }
+#endif
 }
 #endif

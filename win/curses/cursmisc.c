@@ -80,7 +80,7 @@ curses_read_char(void)
 /* Turn on or off the specified color and / or attribute */
 
 void
-curses_toggle_color_attr(WINDOW * win, int color, int attr, int onoff)
+curses_toggle_color_attr(WINDOW * win, int color, attr_t attr, int onoff)
 {
 #ifdef TEXTCOLOR
     int curses_color;
@@ -286,9 +286,28 @@ curses_break_str(const char *str, int width, int line_num)
     char *retstr;
     int curline = 0;
     int strsize = (int) strlen(str) + 1;
+#if (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L) && !defined(_MSC_VER)
     char substr[strsize];
     char curstr[strsize];
     char tmpstr[strsize];
+
+    strcpy(substr, str);
+#else
+#ifndef BUFSZ
+#define BUFSZ 256
+#endif
+    char substr[BUFSZ * 2];
+    char curstr[BUFSZ * 2];
+    char tmpstr[BUFSZ * 2];
+
+    if (strsize > (BUFSZ * 2) - 1) {
+        paniclog("curses", "curses_break_str() string too long.");
+        strncpy(substr, str, (BUFSZ * 2) - 2);
+        substr[(BUFSZ * 2) - 1] = '\0';
+    } else {
+        strcpy(substr, str);
+    }
+#endif
 
     strcpy(substr, str);
 
@@ -658,10 +677,10 @@ curses_get_count(int first_digit)
 /* Convert the given NetHack text attributes into the format curses
 understands, and return that format mask. */
 
-int
+attr_t
 curses_convert_attr(int attr)
 {
-    int curses_attr;
+    attr_t curses_attr;
 
     /* first, strip off control flags masked onto the display attributes
        (caller should have already done this...) */
@@ -699,40 +718,40 @@ curses_convert_attr(int attr)
 /* Map letter attributes from a string to bitmask.  Return mask on
 success, or 0 if not found */
 
-int
+attr_t
 curses_read_attrs(char *attrs)
 {
-    int retattr = 0;
+    attr_t attr = 0;
 
     if (strchr(attrs, 'b') || strchr(attrs, 'B')) {
-        retattr = retattr | A_BOLD;
+        attr |= A_BOLD;
     }
     if (strchr(attrs, 'i') || strchr(attrs, 'I')) {
-        retattr = retattr | A_REVERSE;
+        attr |= A_REVERSE;
     }
     if (strchr(attrs, 'u') || strchr(attrs, 'U')) {
-        retattr = retattr | A_UNDERLINE;
+        attr |= A_UNDERLINE;
     }
     if (strchr(attrs, 'k') || strchr(attrs, 'K')) {
-        retattr = retattr | A_BLINK;
+        attr |= A_BLINK;
     }
 #ifdef A_ITALIC
     if (strchr(attrs, 't') || strchr(attrs, 'T')) {
-        retattr = retattr | A_ITALIC;
+        attr |= A_ITALIC;
     }
 #endif
 #ifdef A_RIGHTLINE
     if (strchr(attrs, 'r') || strchr(attrs, 'R')) {
-        retattr = retattr | A_RIGHTLINE;
+        attr |= A_RIGHTLINE;
     }
 #endif
 #ifdef A_LEFTLINE
     if (strchr(attrs, 'l') || strchr(attrs, 'L')) {
-        retattr = retattr | A_LEFTLINE;
+        attr |= A_LEFTLINE;
     }
 #endif
 
-    return retattr;
+    return attr;
 }
 
 

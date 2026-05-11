@@ -7,7 +7,6 @@
 # Arch:
 # mingw-w64-gcc wine imagemagick
 
-
 if [ ! -d "liblua" ]; then
     git clone -b v5.4 --depth 1 https://github.com/lua/lua.git liblua
 
@@ -21,20 +20,31 @@ fi
 export LUA=`pwd`/liblua/lua.exe
 export LUA_INCLUDE=-I`pwd`/liblua
 export LUA_LIB="`pwd`/liblua/liblua.a -lm"
+$LUA -v
+file $LUA
+
+if [ ! -d "pdcursesmod" ]; then
+    git clone --depth 1 /home/bubi/Development/pdcursesmod
+
+    cd pdcursesmod/wingui
+    make CC=i686-w64-mingw32-gcc UTF8=Y
+    cd ../..
+fi
 
 INSTALL=/tmp/unnethack_win32
 DESTDIR=/tmp/unnethack_destdir
 mkdir -p $DESTDIR $INSTALL
 
 function compile_unnethack {
-	env CFLAGS='-O2 -Wall -Wno-unused' ./configure \
+	env CFLAGS="-O2 -Wall -g -Wno-unused $EXTRA_CFLAGS" ./configure \
 		--host i686-w64-mingw32 \
 		--prefix=$INSTALL \
 		--with-owner="`id -un`" \
 		--with-group="`id -gn`" \
 		--build=i686-pc-mingw32 \
 		--without-compression --disable-file-areas \
-		--disable-status-color --enable-score-on-botl --enable-realtime-on-botl \
+		--disable-status-hilites --disable-status-color \
+		--enable-score-on-botl --enable-realtime-on-botl \
 		$GRAPHICS \
 		&& make --trace install
 }

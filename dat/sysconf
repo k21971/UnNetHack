@@ -75,3 +75,6 @@ STATUSCOLOR=ride:brown
 STATUSCOLOR=frozen:lightblue&inverse
 STATUSCOLOR=elbereth:green&inverse
 
+# status hilites
+OPTIONS=hilite_status:gold/always/yellow
+OPTIONS=hilite_status:hitpoints/down/red

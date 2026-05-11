@@ -227,6 +227,12 @@
 /* Compare High Score entries by user id instead of user name */
 #undef PERS_IS_UID
 
+/* PDCurses backend */
+#undef PDCURSES_BACKEND_SDL2
+
+/* PDCurses backend */
+#undef PDCURSES_BACKEND_WINGUI
+
 /* QWERTZ keyboard layout support */
 #undef QWERTZ
 
@@ -271,6 +277,9 @@
 
 /* TTY graphics status color */
 #undef STATUS_COLORS
+
+/* Status field highlighting */
+#undef STATUS_HILITES
 
 /* Define to 1 if all of the C89 standard headers exist (not just the ones
    required in a freestanding environment). This macro is provided for

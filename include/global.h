@@ -279,7 +279,11 @@ typedef glyph_t nhsym;
 #   ifdef MSWIN_GRAPHICS
 #    define PORT_SUB_ID "graphical"
 #   else
-#    define PORT_SUB_ID "tty"
+#    ifdef PDCURSES_BACKEND_WINGUI
+#      define PORT_SUB_ID "PDCurses"
+#    else
+#      define PORT_SUB_ID "tty"
+#    endif
 #   endif
 #  endif
 # endif
@@ -340,6 +344,7 @@ typedef glyph_t nhsym;
 #define Sprintf  (void) sprintf
 #define Strcat   (void) strcat
 #define Strcpy   (void) strcpy
+#define Strlen(s) Strlen_(s,__func__,__LINE__)
 #ifdef NEED_VARARGS
 #define Vprintf  (void) vprintf
 #define Vfprintf (void) vfprintf

@@ -25,6 +25,7 @@ nethack_default_win=""
 NETHACK_WIN_ENABLE(dummy, no, [dummy graphics for unit tests])
 NETHACK_WIN_ENABLE(lisp, no, [enable playing UnNetHack in Emacs])
 NETHACK_WIN_ENABLE(curses, no, [use curses interface])
+NETHACK_WIN_ENABLE(pdcurses, no, [use pdcurses interface])
 NETHACK_WIN_ENABLE(tty, auto)
 NETHACK_WIN_ENABLE(x11, no)
 NETHACK_WIN_ENABLE(mswin, no, [use Microsoft Window's native graphics])
@@ -186,6 +187,47 @@ if test "$enable_curses_graphics" != "no"; then
                   AC_DEFINE(CURSES_GRAPHICS, [], [Console output])],
                   AC_MSG_ERROR([Can't find working curses library (needed for curses graphics)]))
 
+    OPTIONS_FILE="options"
+    OPTIONS_FILES="options"
+fi
+
+if test "$enable_pdcurses_graphics" != "no"; then
+    if test "$enable_curses_graphics" != "no"; then
+        AC_MSG_ERROR([Using both curses and PDCurses libraries is not supported])
+    fi
+
+    AC_ARG_WITH([pdcurses],
+                [AS_HELP_STRING([--with-pdcurses=LIB], [Path to PDCurses static library (default: third_party/PDCurses)])],
+                [PDCURSES_LIB="$withval"],
+                [PDCURSES_LIB="libpdcurses.a"]
+                )
+
+    AC_ARG_WITH([pdcurses-backend],
+                [AS_HELP_STRING([--with-pdcurses-backend=BACKEND], [PDCurses backend to use (x11, sdl2,
+                 wincon, etc, default: sdl2)])],
+                [PDCURSES_BACKEND="$withval"],
+                [PDCURSES_BACKEND="sdl2"] # Default
+            )
+
+    AC_MSG_NOTICE([PDCurses static library: $PDCURSES_LIB])
+    AC_MSG_NOTICE([Using PDCurses backend: $PDCURSES_BACKEND])
+
+    if test "$PDCURSES_BACKEND" = "sdl2"; then
+        PDCURSES_BACKEND_LIB="-lSDL2 -lSDL2_ttf"
+        CFLAGS="$CFLAGS -DPDC_WIDE -DPDC_FORCE_UTF8"
+        AC_DEFINE(PDCURSES_BACKEND_SDL2, [], [PDCurses backend])
+    elif test "$PDCURSES_BACKEND" = "wingui"; then
+        PDCURSES_BACKEND_LIB="-lgdi32 -lwinmm -lcomdlg32"
+        CFLAGS="$CFLAGS -DPDC_FORCE_UTF8"
+        AC_DEFINE(PDCURSES_BACKEND_WINGUI, [], [PDCurses backend])
+    else
+        AC_MSG_ERROR([PDCurses backend ${PDCURSES_BACKEND} is currently not supported])
+    fi
+    WINCURSESLIB="${PDCURSES_LIB} ${PDCURSES_BACKEND_LIB}"
+    WINSRC="${WINSRC} \$(WINCURSESSRC)"
+    WINOBJ="${WINOBJ} \$(WINCURSESOBJ)"
+    WINLIB="${WINLIB} \$(WINCURSESLIB)"
+    AC_DEFINE(CURSES_GRAPHICS, [], [Console output])
     OPTIONS_FILE="options"
     OPTIONS_FILES="options"
 fi
@@ -385,8 +427,11 @@ NETHACK_ARG(randomized-planes,[Shuffling order of Elemental Planes],RANDOMIZED_P
 NETHACK_ARG(redo,[Redo last command],REDO,yes)
 NETHACK_ARG(clipping,[Allow smaller screens],CLIPPING,yes)
 NETHACK_ARG(menu-color,[TTY graphics menu color],MENU_COLOR,yes)
-if test "$enable_tty_graphics" != "no"; then
+if [[ "$enable_tty_graphics" == "yes" ||
+      "$enable_curses_graphics" == "yes" ||
+      "$enable_pdcurses_graphics" == "yes" ]]; then
 NETHACK_ARG(status-color,[TTY graphics status color],STATUS_COLORS,yes)
+NETHACK_ARG(status-hilites,[Status field highlighting],STATUS_HILITES,yes)
 fi
 NETHACK_ARG(auto-open,[Open doors by walking into them],AUTO_OPEN,yes)
 # NETHACK_ARG(noartifactwish,[Prevent wishing for special artifacts],
@@ -451,16 +496,17 @@ else
 	AC_SUBST(SYSCF_COMMENT,[#])
 fi
 
-if test "$enable_tty_graphics" != "no" -a "$host_os" != mingw32; then
-	NETHACK_ARG(utf8-glyphs,[Enable UTF-8 glyphs in TTY],UTF8_GLYPHS,yes)
-	if test "$enable_utf8_glyphs" != "no" ; then
-		dnl check for uint32_t
-		if test "$uint32_t" = no; then
-			AC_MSG_ERROR([unable to continue without a 4-bytes datatype that could hold unicode codepoints])
+if test "$host_os" != mingw32 || test "$enable_pdcurses_graphics" != "no"; then
+	if test "$enable_tty_graphics" != "no" || test "$enable_curses_graphics" != "no" || test "$enable_pdcurses_graphics" != "no"; then
+		NETHACK_ARG(utf8-glyphs,[Enable UTF-8 glyphs in TTY],UTF8_GLYPHS,yes)
+		if test "$enable_utf8_glyphs" != "no" ; then
+			dnl check for uint32_t
+			if test "$uint32_t" = no; then
+				AC_MSG_ERROR([unable to continue without a 4-bytes datatype that could hold unicode codepoints])
+			fi
 		fi
 	fi
 fi
-
 
 NETHACK_ARG_WITH_PARAM(whereis-file,[Log information about running games],WHEREIS_FILE,no,FILE,[%n.whereis])
 

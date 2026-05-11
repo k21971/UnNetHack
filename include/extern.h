@@ -15,6 +15,8 @@ extern long *alloc(unsigned int);
 #endif
 extern char *fmt_ptr(const genericptr);
 
+#include "hacklib.h"
+
 /* This next pre-processor directive covers almost the entire file,
  * interrupted only occasionally to pick up specific functions as needed. */
 #if !defined(MAKEDEFS_C) && !defined(LEV_LEX_C)
@@ -155,17 +157,34 @@ extern void fix_ghostly_obj(struct obj *) NONNULLARG1;
 
 /* ### botl.c ### */
 
+extern void timebot(void);
 extern int xlev_to_rank(int);
 extern int title_to_mon(const char *, int *, int *);
 extern void max_rank_sz(void);
 #ifdef SCORE_ON_BOTL
 extern long botl_score(void);
 #endif
-extern int describe_level(char *);
+extern int describe_level(char *, int);
+extern void status_initialize(boolean);
+extern void status_finish(void);
 extern const char *rank(void);
 extern const char *rank_of(int, short, boolean);
 extern const char* botl_realtime(void);
 extern void bot(void);
+#ifdef STATUS_HILITES
+extern boolean parse_status_hl1(char *, boolean);
+extern void clear_status_hilites(void);
+extern void reset_status_hilites(void);
+extern int count_status_hilites(void);
+extern boolean status_hilite_menu(void);
+extern struct color_option get_hilite_color(enum statusfields);
+extern struct color_option get_condition_hilite_color(const char *);
+extern void update_blstats(void);
+extern void condopt(int, boolean *, boolean);
+extern int parse_cond_option(boolean, char *);
+extern boolean cond_menu(void);
+extern boolean opt_next_cond(int, char *);
+#endif
 #ifdef DUMP_LOG
 extern void bot1str(char *);
 extern void bot2str(char *);
@@ -643,7 +662,7 @@ extern xint16 ledger_no(d_level *);
 extern xint16 maxledgerno(void);
 extern schar depth(d_level *);
 extern xint16 dunlev(d_level *);
-extern xint16 dunlevs_in_dungeon(d_level *);
+extern xint16 dunlevs_in_dungeon(const d_level *);
 extern xint16 ledger_to_dnum(xint16);
 extern xint16 ledger_to_dlev(xint16);
 extern xint16 deepest_lev_reached(boolean);
@@ -670,6 +689,8 @@ extern boolean On_stairs(coordxy, coordxy);
 extern boolean On_ladder(coordxy, coordxy);
 extern boolean On_stairs_up(coordxy, coordxy);
 extern boolean On_stairs_dn(coordxy, coordxy);
+extern boolean On_stairs_to_sanctum(coordxy, coordxy);
+
 extern void get_level(d_level *, int);
 extern boolean Is_botlevel(d_level *);
 extern boolean Can_fall_thru(d_level *);
@@ -682,7 +703,7 @@ extern boolean In_sheol(d_level *);
 extern branch *dungeon_branch(const char *);
 extern boolean at_dgn_entrance(const char *);
 extern boolean In_hell(d_level *);
-extern boolean In_V_tower(d_level *);
+extern boolean In_V_tower(const d_level *);
 extern boolean On_W_tower_level(d_level *);
 extern boolean In_W_tower(coordxy, coordxy, d_level *);
 extern void find_hell(d_level *);
@@ -967,49 +988,9 @@ extern boolean OBJ_AT(coordxy, coordxy);
 
 /* ### hacklib.c ### */
 
-extern boolean digit(char);
-extern boolean letter(char);
-extern char highc(char);
-extern char lowc(char);
-extern char *lcase(char *);
-extern char *ucase(char *);
-extern char *upstart(char *);
-extern char *mungspaces(char *);
-extern char *trimspaces(char *);
-extern char *strip_newline(char *);
-extern char *eos(char *);
 extern void sanitizestr(char *);
-extern boolean str_end_is(const char *, const char *);
-extern int str_lines_maxlen(const char *);
-extern char *strkitten(char *, char);
-extern void copynchars(char *, const char *, int);
-extern char *strcasecpy(char *, const char *);
-extern char *s_suffix(const char *);
-extern char *ing_suffix(const char *);
-extern char *xcrypt(const char *, char *);
-extern boolean onlyspace(const char *);
-extern char *tabexpand(char *);
-extern char *visctrl(char);
-extern char *strsubst(char *, const char *, const char *);
-extern int strNsubst(char *, const char *, const char *, int);
-extern const char *ordin(int);
-extern char *sitoa(int);
-extern int sgn(int);
 extern int rounddiv(long, int);
-extern int dist2(int, int, int, int);
-extern int isqrt(int);
 extern int ilog2(int);
-extern int distmin(int, int, int, int);
-extern boolean online2(int, int, int, int);
-extern boolean pmatch(const char *, const char *);
-extern boolean pmatchi(const char *, const char *);
-#ifndef STRNCMPI
-extern int strncmpi(const char *, const char *, int);
-#endif
-#ifndef STRSTRI
-extern char *strstri(const char *, const char *);
-#endif
-extern boolean fuzzymatch(const char *, const char *, const char *, boolean);
 extern void init_random(unsigned int);
 extern void reseed_random(void);
 extern void set_random_state(unsigned int);
@@ -1035,24 +1016,23 @@ extern char *iso8601_duration(long);
 extern char* format_duration(long);
 extern char *get_formatted_time(time_t, const char *);
 extern time_t current_epoch(void);
-extern void strbuf_init(strbuf_t *);
-extern void strbuf_append(strbuf_t *, const char *);
-extern void strbuf_reserve(strbuf_t *, int);
-extern void strbuf_empty(strbuf_t *);
-extern void strbuf_nl_to_crlf(strbuf_t *);
 extern int swapbits(int, int, int);
 extern void shuffle_int_array(int *, int);
 extern void strip_brackets(char *);
-/* note: the snprintf CPP wrapper includes the "fmt" argument in "..."
-   (__VA_ARGS__) to allow for zero arguments after fmt */
-#define Snprintf(str, size, ...) \
-    nh_snprintf(__func__, __LINE__, str, size, __VA_ARGS__)
-extern void nh_snprintf(const char *func, int line, char *str, size_t size,
-                        const char *fmt, ...);
-#define FITSint(x) FITSint_(x, __func__, __LINE__)
-extern int FITSint_(long long, const char *, int);
-#define FITSuint(x) FITSuint_(x, __func__, __LINE__)
-extern unsigned FITSuint_(unsigned long long, const char *, int);
+
+/* ### strutil.c ### */
+
+extern void strbuf_init(strbuf_t *) NONNULLARG1;
+extern void strbuf_append(strbuf_t *, const char *) NONNULLPTRS;
+extern void strbuf_reserve(strbuf_t *, int) NONNULLARG1;
+extern void strbuf_empty(strbuf_t *) NONNULLARG1;
+extern void strbuf_nl_to_crlf(strbuf_t *) NONNULLARG1;
+extern unsigned Strlen_(const char *, const char *, int) NONNULLPTRS;
+extern boolean pmatch(const char *, const char *) NONNULLPTRS;
+extern boolean pmatchi(const char *, const char *) NONNULLPTRS;
+/*
+extern boolean pmatchz(const char *, const char *) NONNULLPTRS;
+*/
 
 /* ### insight.c ### */
 
@@ -1060,6 +1040,7 @@ extern int doattributes(void);
 extern void enlightenment(int, boolean);
 extern int doconduct(void);
 extern void show_conduct(int, boolean);
+extern int dovanquished(void);
 
 /* ### invent.c ### */
 
@@ -2184,6 +2165,7 @@ extern short mixtype(struct obj *, struct obj *);
 
 /* ### pray.c ### */
 
+extern boolean critically_low_hp(boolean);
 #ifdef USE_TRAMPOLI
 extern int prayer_done(void);
 #endif
@@ -2297,7 +2279,7 @@ extern boolean create_particular(void);
 #endif
 extern void drop_boulder_on_player(boolean, boolean, boolean, boolean);
 extern int drop_boulder_on_monster(int, int, boolean, boolean);
-extern boolean create_particular_from_buffer(const char*);
+extern boolean create_particular_from_buffer(char*);
 
 /* ### rect.c ### */
 
@@ -3155,6 +3137,7 @@ extern void choose_windows(const char *);
 extern char genl_message_menu(char, int, const char *);
 extern void genl_preference_update(const char *);
 extern void add_menu_heading(winid, const char *) NONNULLARG2;
+extern void add_menu_str(winid, const char *) NONNULLARG2;
 
 /* ### wizard.c ### */
 
