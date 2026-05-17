@@ -1,6 +1,6 @@
 #!/bin/bash -x
 
-version="6.0.14"
+version="6.0.15"
 
 ./configure CFLAGS="-g3 -O0 -Wno-format-overflow" \
 --with-compression=gzip \
