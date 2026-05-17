@@ -537,9 +537,23 @@ encode_extended_achievements(void)
     add_achieveX(buf, "entered_sheol", u.uevent.entered_sheol);
     add_achieveX(buf, "entered_vlads_tower", u.uevent.entered_vlads_tower);
     add_achieveX(buf, "entered_fort_ludios", u.uevent.entered_fort_ludios);
+    add_achieveX(buf, "entered_wizards_tower", u.uevent.entered_wizards_tower);
+    add_achieveX(buf, "entered_juiblex", u.uevent.entered_juiblex);
+    add_achieveX(buf, "entered_baalzebub", u.uevent.entered_baalzebub);
+    add_achieveX(buf, "entered_asmodeus", u.uevent.entered_asmodeus);
+    add_achieveX(buf, "entered_orcus", u.uevent.entered_orcus);
 
     add_achieveX(buf, "entered_a_shop", u.uevent.entered_a_shop);
     add_achieveX(buf, "entered_a_temple", u.uevent.entered_a_temple);
+
+    add_achieveX(buf, "visited_lawful_high_altar_on_astral_plane",
+            u.uevent.visited_lawful_high_altar_on_astral_plane);
+    add_achieveX(buf, "visited_neutral_high_altar_on_astral_plane",
+            u.uevent.visited_neutral_high_altar_on_astral_plane);
+    add_achieveX(buf, "visited_chaotic_high_altar_on_astral_plane",
+            u.uevent.visited_chaotic_high_altar_on_astral_plane);
+    add_achieveX(buf, "visited_all_high_altars_on_astral_plane",
+            u.uevent.visited_all_high_altars_on_astral_plane);
 
     return buf;
 }
