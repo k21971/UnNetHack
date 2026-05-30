@@ -30,6 +30,7 @@ static void analyze_seq(char *, int *, int *);
 # endif
 static void init_hilite(void);
 static void kill_hilite(void);
+static int indexed_color_count(void);
 #endif
 
 /* (see tcap.h) -- nh_CM, nh_ND, nh_CD, nh_HI,nh_HE, nh_US,nh_UE,
@@ -1323,6 +1324,7 @@ init_hilite(void)
 {
     int c;
     char *setf, *scratch;
+    int md_len = (int) strlen(MD);
 
     for (c = 0; c < SIZE(hilites); c++) {
         hilites[c] = nh_HI;
@@ -1331,6 +1333,16 @@ init_hilite(void)
 
     int colors = tgetnum("Co");
     iflags.color_mode = colors;
+#ifdef NCURSES_VERSION
+    /* The standard ncurses terminfo entries that support 24-bit colors
+       (*-direct) map the standard 8/16/256 colors onto the beginning
+       of the 24-bit color range. For example, rgb(0,0,1) appears as red
+       instead of nearly black. iflags.colorcount should retain the actual
+       supported color count, while for default color initialization we
+       take the available indexed colors into consieration. */
+    colors = indexed_color_count();
+#endif
+
     if (colors < 8
         || ((setf = tgetstr("AF", (char **)0)) == (char *)0
             && (setf = tgetstr("Sf", (char **)0)) == (char *)0))
@@ -1339,8 +1351,11 @@ init_hilite(void)
     for (c = 0; c < CLR_MAX / 2; c++) {
         scratch = tparm(setf, ti_map[c]);
         if (iflags.wc2_newcolors || (c != CLR_GRAY)) {
-            hilites[c] = (char *) alloc(strlen(scratch) + 1);
-            Strcpy(hilites[c], scratch);
+            /* system colors */
+            if (c != CLR_BLACK) {
+                hilites[c] = (char *) alloc(strlen(scratch) + 1);
+                Strcpy(hilites[c], scratch);
+            }
         }
         if (colors >= 16) {
             /* Use proper bright colors if terminal supports them. */
@@ -1358,7 +1373,26 @@ init_hilite(void)
         }
     }
 
-    if (!iflags.wc2_newcolors) {
+    if (iflags.wc2_newcolors) {
+        if (colors >= 16) {
+            scratch = tparm(setf, COLOR_BLACK|BRIGHT);
+            hilites[CLR_BLACK] = dupstr(scratch);
+        } else {
+            /* On many terminals, esp. those using classic PC CGA/EGA/VGA
+            * textmode, specifying "hilight" and "black" simultaneously
+            * produces a dark shade of gray that is visible against a
+            * black background.  We can use it to represent black objects.
+            */
+            scratch = tparm(setf, COLOR_BLACK);
+            hilites[CLR_BLACK] = (char *) alloc(strlen(scratch) + md_len + 1);
+            Strcpy(hilites[CLR_BLACK], MD);
+            Strcat(hilites[CLR_BLACK], scratch);
+        }
+    } else {
+        /* But it's conceivable that hilighted black-on-black could
+         * still be invisible on many others.  We substitute blue for
+         * black.
+         */
         hilites[CLR_BLACK] = hilites[CLR_BLUE];
     }
 
@@ -1427,6 +1461,21 @@ init_hilite(void)
             iflags.color_definitions[c] = 0;
         }
     }
+}
+
+static int
+indexed_color_count(void)
+{
+#ifdef NCURSES_VERSION
+    /* ncurses adds the non-standard attribute CO for "number of indexed
+       colors overlaying RGB space". */
+    int idx_colors = tgetnum(nhStr("CO"));
+    if (idx_colors > 0) {
+        return idx_colors;
+    }
+#endif
+
+    return tgetnum(nhStr("Co"));
 }
 
 # else /* UNIX && TERMINFO */
