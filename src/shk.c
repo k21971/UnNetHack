@@ -2624,9 +2624,14 @@ buy_container(
            obj->unpaid to reflect the before-purchase state too */
         if (unpaidcontainer)
             container->unpaid = container->no_charge = 1;
+        /* suppress price quoting while 'unpaid' is faked: messaging via
+           shk_names_obj() may trigger an inventory update which calls
+           doname() on this container while its bill entry is already gone */
+        iflags.suppress_price++;
         shk_names_obj(shkp, container,
                       "bought %s for %ld gold piece%s.%s",
                       totalcost, "");
+        iflags.suppress_price--;
         container->unpaid = container->no_charge = 0;
     }
 
