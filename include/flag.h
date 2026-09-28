@@ -84,8 +84,12 @@ struct flag {
 #ifdef EXP_ON_BOTL
     boolean showexp;    /* show experience points */
 #endif
-    boolean invweight;
-    boolean showweight;
+
+    boolean showweight_items;     /* show weight of individual items */
+    boolean showweight_inventory; /* show weight/capacity in inventory heading */
+    boolean showweight_slots;     /* show slots used in inventory heading */
+    boolean showweight_status;    /* show weight/capacity on status line */
+
     boolean showscore;  /* show score */
     boolean silent;     /* whether the bell rings or not */
     boolean sortpack;   /* sorted inventory */

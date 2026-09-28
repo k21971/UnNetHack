@@ -2118,10 +2118,11 @@ xprname(struct obj *obj,
     long savequan = 0;
     unsigned save_owt = 0;
 
-    if (quan && obj && flags.invweight) {
+    if (quan && obj && flags.showweight_items) {
         save_owt = obj->owt;
         obj->owt = obj->owt * quan / obj->quan;
     }
+
     if (quan && obj) {
         savequan = obj->quan;
         obj->quan = quan;
@@ -2843,8 +2844,16 @@ display_pickinv(const char *lets, const char *xtra_choice, const char *query, bo
     if (!lets) {
         char invheading[QBUFSZ];
         int wcap = weight_cap();
-        Sprintf(invheading, "Inventory: %d/%d weight (%d/52 slots)",
-                inv_weight() + wcap, wcap, inv_cnt(FALSE));
+
+        Strcpy(invheading, "Inventory");
+        if (flags.showweight_inventory) {
+            Sprintf(eos(invheading), ": %d/%d weight",
+                    inv_weight() + wcap, wcap);
+        }
+        if (flags.showweight_slots) {
+            Sprintf(eos(invheading), " (%d/52 slots)", inv_cnt(FALSE));
+        }
+
         if (want_disp) {
             add_menu(win, NO_GLYPH, MENU_DEFCNT, &any, 0, 0, ATR_BOLD, invheading, MENU_UNSELECTED);
         }
